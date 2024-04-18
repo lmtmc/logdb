@@ -114,8 +114,9 @@ app.layout = dbc.Container([
     Output('receiver', 'options'),
     Output('receiver', 'value'),
     Input('tabs', 'active_tab'),
+    Input('reset_btn', 'n_clicks'),
 )
-def update_filter_range(at):
+def update_filter_range(at, n):
     if not at:  # If the active_tab is None, don't update anything
         raise PreventUpdate
 
