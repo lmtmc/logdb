@@ -9,7 +9,10 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+prefix = '/lmtdb/'
+
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],
+                requests_pathname_prefix=prefix,routes_pathname_prefix=prefix)
 
 astig_fields = ['M1ZC0']
 focus_fields = ['M2XOffset', 'M2YOffset', 'M2ZOffset']
@@ -167,11 +170,11 @@ def switch_tab(at, n, start_date, end_date, obsnum_start, obsnum_end, receivers)
 
     for y in fields:
         fig.add_trace(
-            go.Scatter(x=df['ObsNum'], y=df[y], mode='lines', name=f"{y} by ObsNum", legendgroup='group1'),
+            go.Scatter(x=df['ObsNum'], y=df[y],  name=f"{y} by ObsNum", legendgroup='group1'),
             row=1, col=1
         )
         fig.add_trace(
-            go.Scatter(x=df['DateTime'], y=df[y], mode='lines', name=f"{y} by DateTime", legendgroup='group2'),
+            go.Scatter(x=df['DateTime'], y=df[y], name=f"{y} by DateTime", legendgroup='group2'),
             row=2, col=1
         )
     fig.update_layout(title=f'{at} Data')
