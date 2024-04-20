@@ -9,7 +9,7 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
-prefix = '/lmtdb/'
+prefix = '/lmtqldb/'
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],
                 requests_pathname_prefix=prefix,routes_pathname_prefix=prefix)
