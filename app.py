@@ -19,6 +19,13 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],
                 prevent_initial_callbacks="initial_duplicate", suppress_callback_exceptions=True
                 )
 # Definine constants
+def get_df(csv_file):
+    if csv_file == "point":
+        df = pd.read_csv(f'./lmtqldb/{csv_file}.csv', skiprows=[18361, 18362, 18364, 18985, 20372])
+    else:
+        df = pd.read_csv(f'./lmtqldb/{csv_file}.csv')
+    df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
+    return df
 astig_fields = ['M1ZC0']
 focus_fields = ['M2XOffset', 'M2YOffset', 'M2ZOffset']
 point_fields = [
@@ -40,15 +47,18 @@ default_receivers = [
     'DefaultReceiver',
     'Muscat',
     'Toltec']
-
+default_tab = 'astig'
+init_df = get_df('astig')
+default_date_start = init_df['DateTime'].min().strftime('%Y-%m-%d')
+default_date_end = init_df['DateTime'].max().strftime('%Y-%m-%d')
+default_obsnum_start = int(init_df['ObsNum'].min())
+default_obsnum_end = int(init_df['ObsNum'].max())
+default_select_receivers = init_df['Receiver'].unique()
+default_select_receivers = [receiver for receiver in default_receivers if pd.notna(receiver)]
+default_x_axis = 'ObsNum'
+default_fields = astig_fields
 # Load the data from a CSV file
-def get_df(csv_file):
-    if csv_file == "point":
-        df = pd.read_csv(f'./lmtqldb/{csv_file}.csv', skiprows=[18361, 18362, 18364, 18985, 20372])
-    else:
-        df = pd.read_csv(f'./lmtqldb/{csv_file}.csv')
-    df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-    return df
+
 
 
 # dash layout components
@@ -93,7 +103,7 @@ x_axis_selector = html.Div([
 
 y_axis_selector = html.Div([
                                 dbc.Col(html.H5('Select fields to plot'), width='auto'),
-                                dbc.Col(dcc.Dropdown(id='y-axis', multi=True), width='auto'),
+                                dbc.Col(dcc.Dropdown(id='y-axis', multi=True,options=default_fields, value=default_fields), width='auto'),
                     ], className='mt-3 mb-3'),
 
 filter_button = html.Div([
@@ -152,20 +162,11 @@ def make_plot(tab, date_start, date_end, obsnum_start, obsnum_end, receivers, x_
         for idx, y in enumerate(selected_fields, start=1):
             fig.add_trace(go.Scatter(x=df[x_axis], y=df[y], mode='markers'), row=idx, col=1)
             fig.update_yaxes(title_text=f'{y}', row=idx, col=1)
-        fig.update_layout(height=total_height)
+        fig.update_layout(height=total_height, showlegend=False)
 
     return fig
 
-default_tab = 'astig'
-init_df = get_df('astig')
-default_date_start = init_df['DateTime'].min().strftime('%Y-%m-%d')
-default_date_end = init_df['DateTime'].max().strftime('%Y-%m-%d')
-default_obsnum_start = int(init_df['ObsNum'].min())
-default_obsnum_end = int(init_df['ObsNum'].max())
-default_select_receivers = init_df['Receiver'].unique()
-default_select_receivers = [receiver for receiver in default_receivers if pd.notna(receiver)]
-default_x_axis = 'ObsNum'
-default_fields = astig_fields
+
 fig_init = make_plot(default_tab, default_date_start, default_date_end, default_obsnum_start, default_obsnum_end,
                      default_select_receivers, default_x_axis, default_fields)
 
@@ -173,6 +174,7 @@ fig_init = make_plot(default_tab, default_date_start, default_date_end, default_
 app.layout = dbc.Container([
      html.H1('Log Data'),
         html.Br(),
+    dcc.Store(id='data-store', data={'astig': astig_fields, 'focus': focus_fields_default, 'point': point_fields_default}),
     dbc.Row([
         dbc.Col(
             dbc.Card(
@@ -227,8 +229,9 @@ app.layout = dbc.Container([
     Output('y-axis', 'value'),
     Input('tabs', 'active_tab'),
     Input('reset_btn', 'n_clicks'),
+    State('data-store', 'data'),
 )
-def update_filter_range(at, n):
+def update_filter_range(at, n, data_store):
     if not at:  # If the active_tab is None, don't update anything
         raise PreventUpdate
 
@@ -239,20 +242,45 @@ def update_filter_range(at, n):
             receivers = df['Receiver'].unique()
             receivers = [receiver for receiver in receivers if pd.notna(receiver)]
             receiver_options = [{'label': i, 'value': i, 'disabled': i not in receivers} for i in default_receivers]
-            fields = astig_fields if at == "astig" else focus_fields if at == "focus" else point_fields
+
+            if at == "astig":
+                fields = astig_fields
+            elif at == "focus":
+                fields = focus_fields
+            else:
+                fields = point_fields
+
+            y_axis = data_store[at]
             fields_options = [{'label': i, 'value': i} for i in fields]
-            default_fields = astig_fields if at == "astig" else focus_fields_default if at == "focus" else point_fields_default
+
             start_date = df['DateTime'].min().strftime('%Y-%m-%d')
             end_date = df['DateTime'].max().strftime('%Y-%m-%d')
             start_obsnum = int(df['ObsNum'].min())
             end_obsnum = int(df['ObsNum'].max())
+
+
             return (start_date, end_date, start_obsnum, end_obsnum,
-                    receiver_options, receivers, fields_options, default_fields)
+                    receiver_options, receivers, fields_options, y_axis)
         else:
             raise ValueError("Necessary columns are missing in the dataframe")
     except Exception as e:
         print(f"Error updating date range for tab {at}: {e}")
         raise PreventUpdate
+
+@app.callback(
+    Output('data-store','data'),
+    Input('y-axis', 'value'),
+    State('tabs','active_tab'),
+    State('data-store','data')
+)
+def field_save(fields, tab, data):
+    if tab == 'astig':
+        data['astig'] = fields
+    elif tab == 'focus':
+        data['focus'] = fields
+    else:
+        data['point'] = fields
+    return data
 
 @app.callback(
     Output("content", "children"),
