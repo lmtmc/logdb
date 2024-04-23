@@ -56,7 +56,9 @@ app.layout = dbc.Container([
                         html.Div([
                             dbc.Row([dbc.Col(x_axis_selector),dbc.Col(y_axis_selector)],className='mt-3'),
                             dbc.Row(sub_date_selector),
-                            html.Div(id="content", children = dcc.Graph(figure=fig_init))]),
+                            html.Div(id="content", children = dcc.Graph(figure=fig_init)),
+                            dbc.FormText('Tip: Click the start or end point of the x-axis and y-axis to change the range',)
+                        ]),
                     ]),
                 ], style={'padding': '10px', 'height': '75vh',
                         'overflow-y': 'auto'
@@ -173,5 +175,5 @@ def switch_tab(at, x_axis,selected_fields,start_date, end_date, obsnum_start, ob
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
 

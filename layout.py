@@ -152,13 +152,15 @@ def make_plot(tab, date_start, date_end, obsnum_start, obsnum_end, receivers, x_
     else:
         # Multiple subplot case
         fig = make_subplots(
-            rows=num_rows, cols=1, row_heights=[1] * num_rows, vertical_spacing=0.05
+            rows=num_rows, cols=1, row_heights=[1] * num_rows, vertical_spacing=0.05,shared_xaxes=True,
         )
 
         for idx, y in enumerate(selected_fields, start=1):
             fig.add_trace(go.Scatter(x=df[x_axis], y=df[y], mode='markers'), row=idx, col=1)
             fig.update_yaxes(title_text=f'{y}', row=idx, col=1)
-        fig.update_layout(height=total_height, showlegend=False)
+        fig.update_layout(height=total_height, showlegend=False, margin=dict(l=50, r=50, t=50, b=50))
+
+
 
     return fig
 
