@@ -5,7 +5,8 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import datetime
 from layout import (get_df, astig_fields, focus_fields, point_fields, focus_fields_default, point_fields_default,
-                    default_date_start,default_date_end,
+                    default_date_start,default_date_end, point_x_axis,astig_date_start, astig_date_end, focus_date_start,
+                    focus_date_end, point_date_start, point_date_end,
                     default_receivers, default_tab, date_selector, obsnum_selector, receiver_selector, x_axis_selector,
                     y_axis_selector, sub_date_selector,filter_button, fig_init, make_plot)
 
@@ -79,6 +80,8 @@ app.layout = html.Div([
     Output('obsnum-end', 'value'),
     Output('receiver', 'options'),
     Output('receiver', 'value'),
+    Output('x-axis', 'options'),
+    Output('x-axis', 'value'),
     Output('y-axis', 'options'),
     Output('y-axis', 'value'),
     Input('tabs', 'active_tab'),
@@ -99,10 +102,16 @@ def update_filter_range(at, n, data_store):
 
             if at == "astig":
                 fields = astig_fields
+                x_axis_options = ['ObsNum','Time']
+                x_axis = 'ObsNum'
             elif at == "focus":
                 fields = focus_fields
+                x_axis_options = ['ObsNum','Time']
+                x_axis = 'ObsNum'
             else:
                 fields = point_fields
+                x_axis_options = point_x_axis
+                x_axis = 'ObsNum'
 
             y_axis = data_store[at]
             fields_options = [{'label': i, 'value': i} for i in fields]
@@ -112,7 +121,7 @@ def update_filter_range(at, n, data_store):
 
 
             return (default_date_start, default_date_end, start_obsnum, end_obsnum,
-                    receiver_options, receivers, fields_options, y_axis)
+                    receiver_options, receivers, x_axis_options,x_axis, fields_options, y_axis)
         else:
             raise ValueError("Necessary columns are missing in the dataframe")
     except Exception as e:
@@ -135,7 +144,7 @@ def field_save(fields, tab, data):
     return data
 
 @app.callback(
-    Output("content", "children"),
+    Output("content", "children",allow_duplicate=True),
     Output('date-picker-range', 'start_date'),
     Output('date-picker-range', 'end_date'),
     Input("tabs", "active_tab"),
@@ -155,7 +164,6 @@ def field_save(fields, tab, data):
     Input('next-year', 'n_clicks'),
     Input('all-data', 'n_clicks'),
     Input('today', 'n_clicks'),
-
 
 )
 def switch_tab(at, x_axis,selected_fields,start_date, end_date, obsnum_start, obsnum_end, receivers,
@@ -188,8 +196,15 @@ def switch_tab(at, x_axis,selected_fields,start_date, end_date, obsnum_start, ob
         end_date = start_date + pd.DateOffset(years=1)
 
     elif ctx.triggered_id == 'all-data':
-        start_date = pd.to_datetime('2022-01-01')
-        end_date = pd.to_datetime('2024-04-14')
+        if at == 'astig':
+            start_date = astig_date_start
+            end_date = astig_date_end
+        elif at == 'focus':
+            start_date = focus_date_start
+            end_date = focus_date_end
+        elif at == 'point':
+            start_date = point_date_start
+            end_date = point_date_end
 
     elif ctx.triggered_id == 'today':
         # set start_date to today
@@ -210,5 +225,5 @@ def switch_tab(at, x_axis,selected_fields,start_date, end_date, obsnum_start, ob
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
 

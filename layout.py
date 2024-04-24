@@ -20,6 +20,7 @@ point_fields = [
     'ElMapOffset', 'AzMapOffsetError', 'ElMapOffsetError', 'AzHpbw', 'ElHpbw', 'AzHpbwError', 'ElHpbwError',
     'PeakSnrValue', 'PeakSnrError', 'PixelList'
 ]
+point_x_axis = ['ObsNum', 'Time', 'Telescope_AzDesPos', 'Telescope_ElDesPos', 'AzPointOffset']
 focus_fields_default = focus_fields[2]
 point_fields_default = point_fields[0:2]
 default_receivers = [
@@ -47,9 +48,15 @@ default_select_receivers = [receiver for receiver in default_receivers if pd.not
 default_x_axis = 'ObsNum'
 default_fields = astig_fields
 # Load the data from a CSV file
+astig_date_start = init_df['DateTime'].min().strftime('%Y-%m-%d')
+astig_date_end = init_df['DateTime'].max().strftime('%Y-%m-%d')
+focus_date_start = get_df('focus')['DateTime'].min().strftime('%Y-%m-%d')
+focus_date_end = get_df('focus')['DateTime'].max().strftime('%Y-%m-%d')
+point_date_start = get_df('point')['DateTime'].min().strftime('%Y-%m-%d')
+point_date_end = get_df('point')['DateTime'].max().strftime('%Y-%m-%d')
 
 btn_style = {
-    'font-size': '12px',
+     'font-size': '12px',
     'width': '120px',  # Fixed width for all buttons
     'text-align': 'center',  # Centering the text
 }
@@ -83,12 +90,6 @@ date_selector = html.Div([
                         end_date_placeholder_text='End Date',
                         persistence=True,  # Enable persistence if required
                         persistence_type='session',  # Persist in session
-
-                        style={
-                            'font-size': '8px',
-                            'display': 'inline-block',
-                            'border-radius': '20px',
-                        }
                     ),
                 ], className='mb-3'),
 
@@ -135,11 +136,9 @@ filter_button = html.Div([
 def make_plot(tab, date_start, date_end, obsnum_start, obsnum_end, receivers, x_axis, selected_fields):
     # Get the dataframe
     df = get_df(tab)
-
-    # Check if x_axis and selected_fields are in the dataframe
-    if x_axis not in df.columns:
-        raise KeyError(f"X-axis '{x_axis}' does not exist in the dataframe.")
-
+    if x_axis == 'Telescope_AzDesPos' or x_axis == 'Telescope_ElDesPos' or x_axis == 'ElPointOffset':
+        df = get_df('point_tel')
+    print(df.head())
     if not all(field in df.columns for field in selected_fields):
         invalid_fields = [field for field in selected_fields if field not in df.columns]
         raise KeyError(f"The following selected fields are invalid: {', '.join(invalid_fields)}")
@@ -171,6 +170,7 @@ def make_plot(tab, date_start, date_end, obsnum_start, obsnum_end, receivers, x_
             go.Scatter(x=df[x_axis], y=df[selected_fields[0]], mode='markers')
         )
         fig.update_yaxes(title_text=f'{selected_fields[0]}')
+        fig.update_xaxes(title_text=f'{x_axis}')
     else:
         # Multiple subplot case
         fig = make_subplots(
@@ -180,6 +180,7 @@ def make_plot(tab, date_start, date_end, obsnum_start, obsnum_end, receivers, x_
         for idx, y in enumerate(selected_fields, start=1):
             fig.add_trace(go.Scatter(x=df[x_axis], y=df[y], mode='markers'), row=idx, col=1)
             fig.update_yaxes(title_text=f'{y}', row=idx, col=1)
+        fig.update_xaxes(title_text=f'{x_axis}', row=num_rows, col=1)
         fig.update_layout(height=total_height, showlegend=False, margin=dict(l=50, r=50, t=50, b=50))
 
 
