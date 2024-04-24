@@ -66,6 +66,9 @@ sub_date_selector = html.Div([
     dbc.Row([
         dbc.Col(dbc.Button('Previous Year', id='prev-year', outline=True, color='primary', style=btn_style)),
         dbc.Col(dbc.Button('Next Year', id='next-year', outline=True, color='primary', style=btn_style))], className='mb-3'),
+    dbc.Row([
+        dbc.Col(dbc.Button('Today', id='today', outline=True, color='primary', style=btn_style)),
+        dbc.Col(dbc.Button("All Data", id='all-data', outline=True, color='primary', style=btn_style))], className='mb-3'),
 ],)
 
 
@@ -80,6 +83,12 @@ date_selector = html.Div([
                         end_date_placeholder_text='End Date',
                         persistence=True,  # Enable persistence if required
                         persistence_type='session',  # Persist in session
+
+                        style={
+                            'font-size': '8px',
+                            'display': 'inline-block',
+                            'border-radius': '20px',
+                        }
                     ),
                 ], className='mb-3'),
 

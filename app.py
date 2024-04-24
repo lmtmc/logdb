@@ -3,7 +3,7 @@ from dash import dcc, html, Input, Output, State, ctx
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
-
+import datetime
 from layout import (get_df, astig_fields, focus_fields, point_fields, focus_fields_default, point_fields_default,
                     default_date_start,default_date_end,
                     default_receivers, default_tab, date_selector, obsnum_selector, receiver_selector, x_axis_selector,
@@ -15,7 +15,7 @@ import flask
 from flask import redirect, url_for, render_template_string, request
 # Create a Dash app
 server = flask.Flask(__name__)
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP,"https://use.fontawesome.com/releases/v5.8.1/css/all.css"],
                 requests_pathname_prefix=prefix,routes_pathname_prefix=prefix,
                 server = server, title='LMT QL DB',
                 prevent_initial_callbacks="initial_duplicate", suppress_callback_exceptions=True
@@ -23,7 +23,7 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP],
 
 
 
-app.layout = dbc.Container([
+app.layout = html.Div([
      html.H1('Log Data'),
         html.Br(),
     dcc.Store(id='data-store', data={'astig': astig_fields, 'focus': focus_fields_default, 'point': point_fields_default}),
@@ -68,7 +68,7 @@ app.layout = dbc.Container([
         )
     ])
 
- ])
+ ], style={'padding': '20px'})
 
 
 # get the date range and obsnum range from the csv file
@@ -153,11 +153,13 @@ def field_save(fields, tab, data):
     Input('next-month', 'n_clicks'),
     Input('prev-year', 'n_clicks'),
     Input('next-year', 'n_clicks'),
+    Input('all-data', 'n_clicks'),
+    Input('today', 'n_clicks'),
 
 
 )
 def switch_tab(at, x_axis,selected_fields,start_date, end_date, obsnum_start, obsnum_end, receivers,
-               prev_week, next_week, prev_month, next_month, prev_year, next_year):
+               prev_week, next_week, prev_month, next_month, prev_year, next_year,all_data, today):
     if not at:
         raise PreventUpdate
 
@@ -171,7 +173,7 @@ def switch_tab(at, x_axis,selected_fields,start_date, end_date, obsnum_start, ob
 
     elif ctx.triggered_id == 'prev-week':
         start_date = pd.to_datetime(start_date) - pd.DateOffset(weeks=1)
-        end_date = pd.to_datetime(end_date) - pd.DateOffset(weeks=1)
+        end_date = start_date + pd.DateOffset(weeks=1)
 
     elif ctx.triggered_id == 'next-week':
         start_date = pd.to_datetime(start_date) + pd.DateOffset(weeks=1)
@@ -179,11 +181,20 @@ def switch_tab(at, x_axis,selected_fields,start_date, end_date, obsnum_start, ob
 
     elif ctx.triggered_id == 'prev-year':
         start_date = pd.to_datetime(start_date) - pd.DateOffset(years=1)
-        end_date = pd.to_datetime(end_date) - pd.DateOffset(years=1)
+        end_date = start_date + pd.DateOffset(years=1)
 
     elif ctx.triggered_id == 'next-year':
         start_date = pd.to_datetime(start_date) + pd.DateOffset(years=1)
-        end_date = pd.to_datetime(end_date) + pd.DateOffset(years=1)
+        end_date = start_date + pd.DateOffset(years=1)
+
+    elif ctx.triggered_id == 'all-data':
+        start_date = pd.to_datetime('2022-01-01')
+        end_date = pd.to_datetime('2024-04-14')
+
+    elif ctx.triggered_id == 'today':
+        # set start_date to today
+        start_date = pd.to_datetime(datetime.datetime.now().date())
+        end_date = start_date
 
     if selected_fields is None:
         selected_fields = []
