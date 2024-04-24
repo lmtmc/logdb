@@ -48,13 +48,26 @@ default_x_axis = 'ObsNum'
 default_fields = astig_fields
 # Load the data from a CSV file
 
-btn_style = {'border-radius': '12px', 'margin-right': '10px'}
+btn_style = {
+    'font-size': '12px',
+    'width': '120px',  # Fixed width for all buttons
+    'text-align': 'center',  # Centering the text
+}
 
 
 # dash layout components
-sub_date_selector = html.Div([dbc.Button('Previous Month', id='prev-month',outline=True, color='primary',
-                                         style=btn_style),
-                              dbc.Button('Next Month',id='next-month',outline=True, color='primary',style=btn_style)],className='mt-3')
+sub_date_selector = html.Div([
+    dbc.Row([
+        dbc.Col(dbc.Button('Previous Week', id='prev-week',outline=True, color='primary',style=btn_style)),
+        dbc.Col(dbc.Button('Next Week',id='next-week',outline=True, color='primary',style=btn_style))], className='mb-3'),
+    dbc.Row([
+        dbc.Col(dbc.Button('Previous Month', id='prev-month', outline=True, color='primary', style=btn_style)),
+        dbc.Col(dbc.Button('Next Month', id='next-month', outline=True, color='primary', style=btn_style))], className='mb-3'),
+    dbc.Row([
+        dbc.Col(dbc.Button('Previous Year', id='prev-year', outline=True, color='primary', style=btn_style)),
+        dbc.Col(dbc.Button('Next Year', id='next-year', outline=True, color='primary', style=btn_style))], className='mb-3'),
+],)
+
 
 date_selector = html.Div([
                     dbc.Row(html.H5('Select Date Range')),
