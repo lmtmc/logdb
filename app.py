@@ -8,7 +8,7 @@ from layout import (get_df, astig_fields, focus_fields, point_fields, focus_fiel
                     default_date_start,default_date_end, point_x_axis,astig_date_start, astig_date_end, focus_date_start,
                     focus_date_end, point_date_start, point_date_end,
                     default_receivers, default_tab, date_selector, obsnum_selector, receiver_selector, x_axis_selector,
-                    y_axis_selector, sub_date_selector,filter_button, fig_init, make_plot)
+                    y_axis_selector,filter_button, fig_init, make_plot)
 
 prefix = '/lmtqldb/'
 
@@ -32,8 +32,7 @@ app.layout = html.Div([
         dbc.Col(
             dbc.Card(
                 [
-                    dbc.Row(date_selector, className='mb-3'),
-                    dbc.Row(sub_date_selector),
+                    dbc.Row(date_selector),
                     dbc.Row(obsnum_selector),
                     dbc.Row(receiver_selector),
                     dbc.Row(filter_button),
@@ -46,14 +45,15 @@ app.layout = html.Div([
         dbc.Col(
             dbc.Card(
                 [
-                    dbc.CardHeader(html.Div('Select a tab to view data', )),
                     dbc.CardBody([
                         dbc.Tabs([
                             dbc.Tab(label="Astigmatism", tab_id="astig"),
                             dbc.Tab(label="Focus", tab_id="focus"),
                             dbc.Tab(label="Point", tab_id="point"),
                         ],
-                            id="tabs", active_tab=default_tab,
+                            id="tabs", active_tab=default_tab,style={'font-size': '24px','font-weight': 'bold',
+                                                                     'color': '#333','border-bottom': '2px solid #ccc',
+                                                                     'padding': '10px'}
                         ),
                         html.Div([
                             dbc.Row([dbc.Col(x_axis_selector),dbc.Col(y_axis_selector)],className='mt-3'),
@@ -221,8 +221,6 @@ def switch_tab(at, x_axis,selected_fields,start_date, end_date, obsnum_start, ob
     except Exception as e:
         print(f"Error updating tab {at}: {e}")
         raise PreventUpdate
-
-
 
 if __name__ == '__main__':
     app.run_server(debug=False)
