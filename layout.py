@@ -56,31 +56,29 @@ point_date_start = get_df('point')['DateTime'].min().strftime('%Y-%m-%d')
 point_date_end = get_df('point')['DateTime'].max().strftime('%Y-%m-%d')
 
 btn_style = {
-     'font-size': '12px',
+    'font-size': '12px',
     'width': '120px',  # Fixed width for all buttons
-    'text-align': 'center',  # Centering the text
+    'text-align': 'left',  # Centering the text
+    'border': '1px solid #ccc',  # Add a border
+     # 'padding': '2px',  # Add some padding
 }
 
 
 # dash layout components
+
 sub_date_selector = html.Div([
-    dbc.Row([
-        dbc.Col(dbc.Button('Previous Week', id='prev-week',outline=True, color='primary',style=btn_style)),
-        dbc.Col(dbc.Button('Next Week',id='next-week',outline=True, color='primary',style=btn_style))], className='mb-3'),
-    dbc.Row([
-        dbc.Col(dbc.Button('Previous Month', id='prev-month', outline=True, color='primary', style=btn_style)),
-        dbc.Col(dbc.Button('Next Month', id='next-month', outline=True, color='primary', style=btn_style))], className='mb-3'),
-    dbc.Row([
-        dbc.Col(dbc.Button('Previous Year', id='prev-year', outline=True, color='primary', style=btn_style)),
-        dbc.Col(dbc.Button('Next Year', id='next-year', outline=True, color='primary', style=btn_style))], className='mb-3'),
-    dbc.Row([
-        dbc.Col(dbc.Button('Today', id='today', outline=True, color='primary', style=btn_style)),
-        dbc.Col(dbc.Button("All Data", id='all-data', outline=True, color='primary', style=btn_style))], className='mb-3'),
-],)
+    dbc.Row(dbc.Button('Previous Week', id='prev-week',  color='light', style=btn_style)),
+    dbc.Row(dbc.Button('Next Week', id='next-week',  color='light', style=btn_style)),
+    dbc.Row(dbc.Button('Previous Month', id='prev-month',color='light', style=btn_style)),
+    dbc.Row(dbc.Button('Next Month', id='next-month',  color='light', style=btn_style)),
+    dbc.Row(dbc.Button('Previous Year', id='prev-year',  color='light', style=btn_style)),
+    dbc.Row(dbc.Button('Next Year', id='next-year',  color='light', style=btn_style)),
+    dbc.Row(dbc.Button('Today', id='today', color='light', style=btn_style)),
+    dbc.Row(dbc.Button("All Data", id='all-data', color='light', style=btn_style)),
+])
 
+custom_selector = html.Div([
 
-date_selector = html.Div([
-                    dbc.Row(html.H5('Select Date Range')),
                     dcc.DatePickerRange(
                         id='date-picker-range',
                         display_format='YYYY-MM-DD',
@@ -91,7 +89,14 @@ date_selector = html.Div([
                         persistence=True,  # Enable persistence if required
                         persistence_type='session',  # Persist in session
                     ),
-                ], className='mb-3'),
+                ]),
+
+date_selector = html.Div([
+dbc.Row(html.H5('Select Date Range')),
+    dbc.Row([
+                        dbc.Col(custom_selector, width=7),
+                    dbc.Col(sub_date_selector,)
+                ])], className='mb-3'),
 
 obsnum_selector = html.Div(
 
@@ -138,7 +143,6 @@ def make_plot(tab, date_start, date_end, obsnum_start, obsnum_end, receivers, x_
     df = get_df(tab)
     if x_axis == 'Telescope_AzDesPos' or x_axis == 'Telescope_ElDesPos' or x_axis == 'ElPointOffset':
         df = get_df('point_tel')
-    print(df.head())
     if not all(field in df.columns for field in selected_fields):
         invalid_fields = [field for field in selected_fields if field not in df.columns]
         raise KeyError(f"The following selected fields are invalid: {', '.join(invalid_fields)}")
