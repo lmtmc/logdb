@@ -1,226 +1,298 @@
+# todo update database automatically
 import dash
-from dash import dcc, html, Input, Output, State, ctx
+from dash import html, Input, Output, State, ctx
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-import pandas as pd
-import datetime
-from layout import (get_df, astig_fields, focus_fields, point_fields, focus_fields_default, point_fields_default,
-                    default_date_start,default_date_end, point_x_axis,astig_date_start, astig_date_end, focus_date_start,
-                    focus_date_end, point_date_start, point_date_end,
-                    default_receivers, default_tab, date_selector, obsnum_selector, receiver_selector, x_axis_selector,
-                    y_axis_selector,filter_button, fig_init, make_plot)
+from layout import (astig_plot, focus_plot, point_plot, make_plot, adjust_date_range)
 
 prefix = '/lmtqldb/'
 
 import flask
-from flask import redirect, url_for, render_template_string, request
+
 # Create a Dash app
 server = flask.Flask(__name__)
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP,"https://use.fontawesome.com/releases/v5.8.1/css/all.css"],
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP,
+                                                "https://codepen.io/chriddyp/pen/bWLwgP.css",
+                                                "https://use.fontawesome.com/releases/v5.8.1/css/all.css"],
                 requests_pathname_prefix=prefix,routes_pathname_prefix=prefix,
                 server = server, title='LMT QL DB',
                 prevent_initial_callbacks="initial_duplicate", suppress_callback_exceptions=True
                 )
 
-
-
 app.layout = html.Div([
-     html.H1('Log Data'),
-        html.Br(),
-    dcc.Store(id='data-store', data={'astig': astig_fields, 'focus': focus_fields_default, 'point': point_fields_default}),
-    dbc.Row([
-        dbc.Col(
-            dbc.Card(
-                [
-                    dbc.Row(date_selector),
-                    dbc.Row(obsnum_selector),
-                    dbc.Row(receiver_selector),
-                    dbc.Row(filter_button),
-                ], style={'padding': '10px', 'height': '75vh',
-                          'overflow-y': 'auto'
-                          }
-            )
-           ,width=3),
+    html.H1('LMT QL DB PLOTS', style={'textAlign': 'center'}),
+    html.Br(),
+    dbc.Card(
+        [
+                dbc.Row([
+                    dbc.Col(astig_plot, width=4),
+                    dbc.Col(focus_plot, width=4),
+                    dbc.Col(point_plot, width=4),
+                ], ),
+            ],style={'padding': '20px'})
 
-        dbc.Col(
-            dbc.Card(
-                [
-                    dbc.CardBody([
-                        dbc.Tabs([
-                            dbc.Tab(label="Astigmatism", tab_id="astig"),
-                            dbc.Tab(label="Focus", tab_id="focus"),
-                            dbc.Tab(label="Point", tab_id="point"),
-                        ],
-                            id="tabs", active_tab=default_tab,style={'font-size': '24px','font-weight': 'bold',
-                                                                     'color': '#333','border-bottom': '2px solid #ccc',
-                                                                     'padding': '10px'}
-                        ),
-                        html.Div([
-                            dbc.Row([dbc.Col(x_axis_selector),dbc.Col(y_axis_selector)],className='mt-3'),
+        ],style={ 'margin': '20px'})
 
-                            html.Div(id="content", children = dcc.Graph(figure=fig_init)),
-                            dbc.FormText('Tip: Click the start or end point of the x-axis and y-axis to change the range',)
-                        ]),
-                    ]),
-                ], style={'padding': '10px', 'height': '75vh',
-                        'overflow-y': 'auto'
-                          }
-            ),width=9
-        )
-    ])
-
- ], style={'padding': '20px'})
-
-
-# get the date range and obsnum range from the csv file
+# astig plot the data based on the selection
 @app.callback(
-    Output('date-picker-range', 'start_date',allow_duplicate=True),
-    Output('date-picker-range', 'end_date',allow_duplicate=True),
-    Output('obsnum-start', 'value'),
-    Output('obsnum-end', 'value'),
-    Output('receiver', 'options'),
-    Output('receiver', 'value'),
-    Output('x-axis', 'options'),
-    Output('x-axis', 'value'),
-    Output('y-axis', 'options'),
-    Output('y-axis', 'value'),
-    Input('tabs', 'active_tab'),
-    Input('reset_btn', 'n_clicks'),
-    State('data-store', 'data'),
+    Output('astig-plot', 'figure'),
+Input('astig-x-axis', 'value'),
+Input('astig-y-axis', 'value'),
+Input('astig-date-picker-range', 'start_date'),
+Input('astig-date-picker-range', 'end_date'),
+Input('astig-obsnum-start', 'value'),
+Input('astig-obsnum-end', 'value'),
+Input('astig-receiver', 'value'),
 )
-def update_filter_range(at, n, data_store):
-    if not at:  # If the active_tab is None, don't update anything
-        raise PreventUpdate
+def update_astig_plot(x_axis, selected_fields, start_date, end_date, obsnum_start, obsnum_end, receivers):
 
-    # Try to fetch and prepare the dataframe
+    return make_plot('astig', start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, selected_fields)
+
+# focus plot the data based on the selection
+@app.callback(
+    Output('focus-plot', 'figure'),
+Input('focus-x-axis', 'value'),
+Input('focus-y-axis', 'value'),
+Input('focus-date-picker-range', 'start_date'),
+Input('focus-date-picker-range', 'end_date'),
+Input('focus-obsnum-start', 'value'),
+Input('focus-obsnum-end', 'value'),
+Input('focus-receiver', 'value'),
+)
+def update_focus_plot(x_axis, selected_fields, start_date, end_date, obsnum_start, obsnum_end, receivers):
+
+    return make_plot('focus', start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, selected_fields)
+
+# point plot the data based on the selection
+@app.callback(
+    Output('point-plot', 'figure'),
+Input('point-x-axis', 'value'),
+Input('point-y-axis', 'value'),
+Input('point-date-picker-range', 'start_date'),
+Input('point-date-picker-range', 'end_date'),
+Input('point-obsnum-start', 'value'),
+Input('point-obsnum-end', 'value'),
+Input('point-receiver', 'value'),
+)
+def update_point_plot(x_axis, selected_fields, start_date, end_date, obsnum_start, obsnum_end, receivers):
+
+    return make_plot('point', start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, selected_fields)
+
+# date range selector update
+@app.callback(
+    Output("astig-plot", "figure",allow_duplicate=True),
+    Output('astig-date-picker-range', 'start_date'),
+    Output('astig-date-picker-range', 'end_date'),
+    Input('astig-x-axis', 'value'),
+    Input('astig-y-axis', 'value'),
+    Input('astig-date-picker-range', 'start_date'),
+    Input('astig-date-picker-range', 'end_date'),
+    Input('astig-obsnum-start', 'value'),
+    Input('astig-obsnum-end', 'value'),
+    Input('astig-receiver', 'value'),
+    Input('astig-last-week', 'n_clicks'),
+    Input('astig-next-week', 'n_clicks'),
+    Input('astig-last-month', 'n_clicks'),
+    Input('astig-next-month', 'n_clicks'),
+    Input('astig-last-year', 'n_clicks'),
+    Input('astig-next-year', 'n_clicks'),
+    Input('astig-all-data', 'n_clicks'),
+    Input('astig-this-week', 'n_clicks'),
+    prevent_initial_call=True
+
+)
+def update_astig_date( x_axis, y_axis, start_date, end_date, obsnum_start, obsnum_end, receivers,
+                       prev_week, next_week, prev_month, next_month, prev_year, next_year,all_data, today):
+
+    start_date, end_date = adjust_date_range(ctx.triggered_id, start_date, end_date)
+
     try:
-        df = get_df(at)
-        if 'DateTime' in df.columns and 'ObsNum' in df.columns and 'Receiver' in df.columns:
-            receivers = df['Receiver'].unique()
-            receivers = [receiver for receiver in receivers if pd.notna(receiver)]
-            receiver_options = [{'label': i, 'value': i, 'disabled': i not in receivers} for i in default_receivers]
-
-            if at == "astig":
-                fields = astig_fields
-                x_axis_options = ['ObsNum','Time']
-                x_axis = 'ObsNum'
-            elif at == "focus":
-                fields = focus_fields
-                x_axis_options = ['ObsNum','Time']
-                x_axis = 'ObsNum'
-            else:
-                fields = point_fields
-                x_axis_options = point_x_axis
-                x_axis = 'ObsNum'
-
-            y_axis = data_store[at]
-            fields_options = [{'label': i, 'value': i} for i in fields]
-
-            start_obsnum = int(df['ObsNum'].min())
-            end_obsnum = int(df['ObsNum'].max())
-
-
-            return (default_date_start, default_date_end, start_obsnum, end_obsnum,
-                    receiver_options, receivers, x_axis_options,x_axis, fields_options, y_axis)
-        else:
-            raise ValueError("Necessary columns are missing in the dataframe")
+        plot_figure = make_plot('astig',start_date,end_date,obsnum_start,obsnum_end,receivers,x_axis, y_axis)
+        return plot_figure, start_date, end_date
     except Exception as e:
-        print(f"Error updating date range for tab {at}: {e}")
+        print(f"Error updating tab astig: {e}")
         raise PreventUpdate
 
-@app.callback(
-    Output('data-store','data'),
-    Input('y-axis', 'value'),
-    State('tabs','active_tab'),
-    State('data-store','data')
-)
-def field_save(fields, tab, data):
-    if tab == 'astig':
-        data['astig'] = fields
-    elif tab == 'focus':
-        data['focus'] = fields
-    else:
-        data['point'] = fields
-    return data
 
 @app.callback(
-    Output("content", "children",allow_duplicate=True),
-    Output('date-picker-range', 'start_date'),
-    Output('date-picker-range', 'end_date'),
-    Input("tabs", "active_tab"),
-    # Input('filter_btn', 'n_clicks'),
-    Input('x-axis', 'value'),
-    Input('y-axis', 'value'),
-    Input('date-picker-range', 'start_date'),
-    Input('date-picker-range', 'end_date'),
-    Input('obsnum-start', 'value'),
-    Input('obsnum-end', 'value'),
-    Input('receiver', 'value'),
-    Input('prev-week', 'n_clicks'),
-    Input('next-week', 'n_clicks'),
-    Input('prev-month', 'n_clicks'),
-    Input('next-month', 'n_clicks'),
-    Input('prev-year', 'n_clicks'),
-    Input('next-year', 'n_clicks'),
-    Input('all-data', 'n_clicks'),
-    Input('today', 'n_clicks'),
+    Output("focus-plot", "figure",allow_duplicate=True),
+    Output('focus-date-picker-range', 'start_date'),
+    Output('focus-date-picker-range', 'end_date'),
+    Input('focus-x-axis', 'value'),
+    Input('focus-y-axis', 'value'),
+    Input('focus-date-picker-range', 'start_date'),
+    Input('focus-date-picker-range', 'end_date'),
+    Input('focus-obsnum-start', 'value'),
+    Input('focus-obsnum-end', 'value'),
+    Input('focus-receiver', 'value'),
+    Input('focus-last-week', 'n_clicks'),
+    Input('focus-next-week', 'n_clicks'),
+    Input('focus-last-month', 'n_clicks'),
+    Input('focus-next-month', 'n_clicks'),
+    Input('focus-last-year', 'n_clicks'),
+    Input('focus-next-year', 'n_clicks'),
+    Input('focus-all-data', 'n_clicks'),
+    Input('focus-this-week', 'n_clicks'),
+    prevent_initial_call=True
 
 )
-def switch_tab(at, x_axis,selected_fields,start_date, end_date, obsnum_start, obsnum_end, receivers,
-               prev_week, next_week, prev_month, next_month, prev_year, next_year,all_data, today):
-    if not at:
-        raise PreventUpdate
+def update_astig_plot( x_axis, selected_fields, start_date, end_date, obsnum_start, obsnum_end, receivers,
+                        prev_week, next_week, prev_month, next_month, prev_year, next_year,all_data, today):
+    start_date, end_date = adjust_date_range(ctx.triggered_id, start_date, end_date)
 
-    if ctx.triggered_id == 'prev-month':
-        start_date = pd.to_datetime(start_date) - pd.DateOffset(months=1)
-        end_date = pd.to_datetime(end_date) - pd.DateOffset(months=1)
-
-    elif ctx.triggered_id == 'next-month':
-        start_date = pd.to_datetime(start_date) + pd.DateOffset(months=1)
-        end_date = pd.to_datetime(end_date) + pd.DateOffset(months=1)
-
-    elif ctx.triggered_id == 'prev-week':
-        start_date = pd.to_datetime(start_date) - pd.DateOffset(weeks=1)
-        end_date = start_date + pd.DateOffset(weeks=1)
-
-    elif ctx.triggered_id == 'next-week':
-        start_date = pd.to_datetime(start_date) + pd.DateOffset(weeks=1)
-        end_date = pd.to_datetime(end_date) + pd.DateOffset(weeks=1)
-
-    elif ctx.triggered_id == 'prev-year':
-        start_date = pd.to_datetime(start_date) - pd.DateOffset(years=1)
-        end_date = start_date + pd.DateOffset(years=1)
-
-    elif ctx.triggered_id == 'next-year':
-        start_date = pd.to_datetime(start_date) + pd.DateOffset(years=1)
-        end_date = start_date + pd.DateOffset(years=1)
-
-    elif ctx.triggered_id == 'all-data':
-        if at == 'astig':
-            start_date = astig_date_start
-            end_date = astig_date_end
-        elif at == 'focus':
-            start_date = focus_date_start
-            end_date = focus_date_end
-        elif at == 'point':
-            start_date = point_date_start
-            end_date = point_date_end
-
-    elif ctx.triggered_id == 'today':
-        # set start_date to today
-        start_date = pd.to_datetime(datetime.datetime.now().date())
-        end_date = start_date
-
-    if selected_fields is None:
-        selected_fields = []
-    elif not isinstance(selected_fields, list):
-        selected_fields = [selected_fields]
     try:
-        plot_figure = make_plot(at,start_date,end_date,obsnum_start,obsnum_end,receivers,x_axis, selected_fields)
-        return dcc.Graph(figure=plot_figure), start_date, end_date
+        plot_figure = make_plot('focus',start_date,end_date,obsnum_start,obsnum_end,receivers,x_axis, selected_fields)
+        return plot_figure, start_date, end_date
     except Exception as e:
-        print(f"Error updating tab {at}: {e}")
+        print(f"Error updating tab focus: {e}")
         raise PreventUpdate
+
+@app.callback(
+    Output("point-plot", "figure",allow_duplicate=True),
+    Output('point-date-picker-range', 'start_date'),
+    Output('point-date-picker-range', 'end_date'),
+    Input('point-x-axis', 'value'),
+    Input('point-y-axis', 'value'),
+    Input('point-date-picker-range', 'start_date'),
+    Input('point-date-picker-range', 'end_date'),
+    Input('point-obsnum-start', 'value'),
+    Input('point-obsnum-end', 'value'),
+    Input('point-receiver', 'value'),
+    Input('point-last-week', 'n_clicks'),
+    Input('point-next-week', 'n_clicks'),
+    Input('point-last-month', 'n_clicks'),
+    Input('point-next-month', 'n_clicks'),
+    Input('point-last-year', 'n_clicks'),
+    Input('point-next-year', 'n_clicks'),
+    Input('point-all-data', 'n_clicks'),
+    Input('point-this-week', 'n_clicks'),
+    prevent_initial_call=True
+)
+def update_point_plot( x_axis, selected_fields, start_date, end_date, obsnum_start, obsnum_end, receivers,
+                        prev_week, next_week, prev_month, next_month, prev_year, next_year,all_data, today):
+    start_date, end_date = adjust_date_range(ctx.triggered_id, start_date, end_date)
+
+    try:
+        plot_figure = make_plot('point',start_date,end_date,obsnum_start,obsnum_end,receivers,x_axis, selected_fields)
+        return plot_figure, start_date, end_date
+    except Exception as e:
+        print(f"Error updating tab point: {e}")
+        raise PreventUpdate
+
+# click astig another range to open compare modal
+@app.callback(
+Output('astig-compare-modal', 'is_open'),
+Input('astig-another-range', 'n_clicks'),
+Input('astig-compare-modal-close', 'n_clicks'),
+State('astig-compare-modal', 'is_open'),
+prevent_initial_call=True
+)
+def toggle_astig_compare_modal(n1, n2,is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+# click focus another range to open compare modal
+@app.callback(
+Output('focus-compare-modal', 'is_open'),
+Input('focus-another-range', 'n_clicks'),
+Input('focus-compare-modal-close', 'n_clicks'),
+State('focus-compare-modal', 'is_open'),
+prevent_initial_call=True
+)
+def toggle_focus_compare_modal(n1, n2,is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+# click point another range to open compare modal
+@app.callback(
+Output('point-compare-modal', 'is_open'),
+Input('point-another-range', 'n_clicks'),
+Input('point-compare-modal-close', 'n_clicks'),
+State('point-compare-modal', 'is_open'),
+prevent_initial_call=True
+)
+def toggle_point_compare_modal(n1, n2,is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+#create a astig compare plot in the modal
+@app.callback(
+Output('astig-compare-plot1', 'figure'),
+Output('astig-compare-plot2', 'figure'),
+    Input('astig-compare-btn', 'n_clicks'),
+State('astig-compare-date-picker-range1', 'start_date'),
+State('astig-compare-date-picker-range1', 'end_date'),
+State('astig-compare-date-picker-range2', 'start_date'),
+State('astig-compare-date-picker-range2', 'end_date'),
+State('astig-obsnum-start', 'value'),
+State('astig-obsnum-end', 'value'),
+State('astig-receiver', 'value'),
+State('astig-x-axis', 'value'),
+State('astig-y-axis', 'value'),
+prevent_initial_call=True
+)
+def update_astig_compare_plot(compare_btn, start_date1, end_date1, start_date2,
+                              end_date2,obsnum_start, obsnum_end, receivers, x_axis, y_axis, ):
+    if compare_btn:
+        fig1= make_plot('astig', start_date1, end_date1,obsnum_start, obsnum_end, receivers, x_axis, y_axis)
+        fig2 = make_plot('astig', start_date2, end_date2,obsnum_start, obsnum_end, receivers, x_axis, y_axis)
+        return fig1, fig2
+    raise PreventUpdate
+
+# create a focus compare plot in the modal
+@app.callback(
+Output('focus-compare-plot1', 'figure'),
+Output('focus-compare-plot2', 'figure'),
+    Input('focus-compare-btn', 'n_clicks'),
+State('focus-compare-date-picker-range1', 'start_date'),
+State('focus-compare-date-picker-range1', 'end_date'),
+State('focus-compare-date-picker-range2', 'start_date'),
+State('focus-compare-date-picker-range2', 'end_date'),
+State('focus-obsnum-start', 'value'),
+State('focus-obsnum-end', 'value'),
+State('focus-receiver', 'value'),
+State('focus-x-axis', 'value'),
+State('focus-y-axis', 'value'),
+prevent_initial_call=True
+)
+def update_focus_compare_plot(compare_btn, start_date1, end_date1, start_date2,
+                                end_date2,obsnum_start, obsnum_end, receivers, x_axis, y_axis, ):
+    if compare_btn:
+        fig1 = make_plot('focus', start_date1, end_date1, obsnum_start, obsnum_end, receivers, x_axis, y_axis)
+        fig2 = make_plot('focus', start_date2, end_date2, obsnum_start, obsnum_end, receivers, x_axis, y_axis)
+        return fig1, fig2
+    raise PreventUpdate
+
+# create a point compare plot in the modal
+@app.callback(
+Output('point-compare-plot1', 'figure'),
+Output('point-compare-plot2', 'figure'),
+    Input('point-compare-btn', 'n_clicks'),
+State('point-compare-date-picker-range1', 'start_date'),
+State('point-compare-date-picker-range1', 'end_date'),
+State('point-compare-date-picker-range2', 'start_date'),
+State('point-compare-date-picker-range2', 'end_date'),
+State('point-obsnum-start', 'value'),
+State('point-obsnum-end', 'value'),
+State('point-receiver', 'value'),
+State('point-x-axis', 'value'),
+State('point-y-axis', 'value'),
+prevent_initial_call=True
+)
+def update_point_compare_plot(compare_btn, start_date1, end_date1, start_date2,
+                                end_date2,obsnum_start, obsnum_end, receivers, x_axis, y_axis, ):
+    if compare_btn:
+        if y_axis is None:
+            y_axis = []
+        elif not isinstance(y_axis, list):
+            y_axis = [y_axis]
+        fig1 = make_plot('point', start_date1, end_date1, obsnum_start, obsnum_end, receivers, x_axis, y_axis)
+        fig2 = make_plot('point', start_date2, end_date2, obsnum_start, obsnum_end, receivers, x_axis, y_axis)
+        return fig1, fig2
+    raise PreventUpdate
 
 if __name__ == '__main__':
     app.run_server(debug=False)
