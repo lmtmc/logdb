@@ -8,10 +8,12 @@ import datetime
 from datetime import timedelta, datetime
 
 # Define styles
+title_style = {'textAlign': 'center', 'margin': '10px','backgroundColor': '#17a2b8',}
 NUMBER_INPUT_STYLE = {'width': '100px', 'height': '30px', 'textAlign': 'center'}
-PLOT_STYLE= {'min-height':'800px', 'margin': '0px', 'padding': '0px', 'border': '1px solid black',
-              # 'overflow-y':'auto',
-              'padding':'5px'}
+PLOT_STYLE= {
+    'margin': '0px', 'backgroundColor': '#f8f9fa', 'padding':'10px'
+
+}
 #Define constants
 ASTIG_FIELDS = ['M1ZC0']
 FOCUS_FIELDS = ['M2XOffset', 'M2YOffset', 'M2ZOffset']
@@ -103,7 +105,29 @@ lighter_outline_style = {
     'border-color': '#c0c0c0',  # Light gray color for the outline
 }
 
-# Define the row of buttons with the lighter outline style
+def create_title(title, name):
+    return html.Div(
+        dbc.Row(
+            [
+                dbc.Col(html.H5(title), width='auto', lg=6, md=6, sm=12),  # Adjust widths as needed
+                dbc.Col(
+                    dbc.Button(
+                        [html.I(className='fas fa-plus'),'Another Plot'],  # Assuming 'solid' is a typo
+                        id=f'{name}-another-range',
+                        title='Add Another Range to Compare',
+                        style={'color': '#17a2b8', 'backgroundColor': 'white'},
+                        #style=lighter_outline_style,  # Uncomment and define if needed
+                        #outline=True,
+                    ),
+                    width='auto', lg=6, md=6, sm=12  # Adjust widths as needed
+                ),
+            ],
+            style=title_style,  # Ensure this style supports side-by-side layout
+            #justify='end',  # Use 'start', 'end', 'between', 'around' as needed
+            align='center',
+        )
+    )
+
 def create_time_buttons(name):
     return dbc.Row(
     [
@@ -208,16 +232,6 @@ def create_time_buttons(name):
             width='auto',
             style={'padding': '0', 'margin': '0'},
         ),
-        dbc.Col(
-            dbc.Button(
-                [html.I(className='fas solid fa-plus'),],
-
-            id=f'{name}-another-range',
-            title='Add Another Range to Compare',
-            style=lighter_outline_style,
-            outline=True,)
-        ),
-
     ],
     style={'padding': '0', 'margin': '0'}, justify='end'
 )
@@ -410,63 +424,63 @@ def create_receiver_selector(name):
                 ]), ),
 
 astig_plot = [
-            html.Div([html.H5('Astigmatism Plot',style={'textAlign': 'center'}),
-
             html.Div([
-                dbc.Row(create_date_selector('astig')),
-                dbc.Row(create_obsnum_selector('astig')),
-                dbc.Row(create_receiver_selector('astig')),
-                dbc.Row([
-                    dbc.Col(dbc.Label('x-axis'), width=2),
-                    dbc.Col(dcc.Dropdown(id='astig-x-axis', options=['ObsNum', 'Time'], value='ObsNum'),width=10),
-                ],className='mb-1'),
-                dbc.Row([
-                    dbc.Col(dbc.Label('y-axis'), width=2),
-                    dbc.Col(dcc.Dropdown(id='astig-y-axis', multi=True, options=ASTIG_FIELDS,
-                                     value=ASTIG_FIELDS[0]),width=10)])
-            ]),
-            dcc.Graph(figure=go.Figure(), id='astig-plot')],style=PLOT_STYLE),
-            create_compare_modal('astig')
+                create_title('Astigmatism Plot', 'astig'),
+                html.Div([
+                    dbc.Row(create_date_selector('astig')),
+                    dbc.Row(create_obsnum_selector('astig')),
+                    dbc.Row(create_receiver_selector('astig')),
+                    dbc.Row([
+                        dbc.Col(dbc.Label('x-axis'), width=2),
+                        dbc.Col(dcc.Dropdown(id='astig-x-axis', options=['ObsNum', 'Time'], value='ObsNum'),width=10),
+                    ],className='mb-1'),
+                    dbc.Row([
+                        dbc.Col(dbc.Label('y-axis'), width=2),
+                        dbc.Col(dcc.Dropdown(id='astig-y-axis', multi=True, options=ASTIG_FIELDS,
+                                         value=ASTIG_FIELDS[0]),width=10)])
+                    ]),
+                dcc.Graph(figure=go.Figure(), id='astig-plot')],style=PLOT_STYLE),
+                create_compare_modal('astig')
             ]
 
 focus_plot = [
             html.Div([
-                html.H5('Focus Plot',style={'textAlign': 'center'}),
-            html.Div([dbc.Row(create_date_selector('focus')),
-            dbc.Row(create_obsnum_selector('focus')),
-            dbc.Row(create_receiver_selector('focus')),
-            dbc.Row([
-                dbc.Col(dbc.Label('x-axis'), width=2),
-                dbc.Col(dcc.Dropdown(id='focus-x-axis', options=['ObsNum', 'Time'], value='ObsNum')),
-            ], className='mb-1'),
-            dbc.Row([
-                dbc.Col(dbc.Label('y-axis'), width=2),
-                dbc.Col(dcc.Dropdown(id='focus-y-axis', multi=True, options=FOCUS_FIELDS,
-                                     value=focus_fields_default))
-            ],
-                className='mb-1')]),
-            dcc.Graph(figure=go.Figure(), id='focus-plot')],style=PLOT_STYLE),
-            create_compare_modal('focus')
+                create_title('Focus Plot', 'focus'),
+                html.Div([dbc.Row(create_date_selector('focus')),
+                dbc.Row(create_obsnum_selector('focus')),
+                dbc.Row(create_receiver_selector('focus')),
+                dbc.Row([
+                    dbc.Col(dbc.Label('x-axis'), width=2),
+                    dbc.Col(dcc.Dropdown(id='focus-x-axis', options=['ObsNum', 'Time'], value='ObsNum')),
+                ], className='mb-1'),
+                dbc.Row([
+                    dbc.Col(dbc.Label('y-axis'), width=2),
+                    dbc.Col(dcc.Dropdown(id='focus-y-axis', multi=True, options=FOCUS_FIELDS,
+                                         value=focus_fields_default))
+                ],
+                    className='mb-1')]),
+                dcc.Graph(figure=go.Figure(), id='focus-plot')],style=PLOT_STYLE),
+                create_compare_modal('focus')
 
 ]
 
 point_plot = [
             html.Div([
-                html.H5('Point Plot',style={'textAlign': 'center'}),
-            html.Div([dbc.Row(create_date_selector('point')),
-            dbc.Row(create_obsnum_selector('point')),
-            dbc.Row(create_receiver_selector('point')),
-            dbc.Row([
-                dbc.Col(dbc.Label('x-axis'), width=2),
-                dbc.Col(dcc.Dropdown(id='point-x-axis', options=point_x_axis, value='ObsNum')),
-            ], className='mb-1'),
-            dbc.Row([
-                dbc.Col(dbc.Label('y-axis'), width=2),
-                dbc.Col(dcc.Dropdown(id='point-y-axis', multi=True, options=POINT_FIELDS,
-                                     value=point_fields_default))
-            ],
-                className='mb-1')]),
-            dcc.Graph(figure=go.Figure(), id='point-plot')],style=PLOT_STYLE),
+                create_title('Pointing Plot', 'point'),
+                html.Div([dbc.Row(create_date_selector('point')),
+                dbc.Row(create_obsnum_selector('point')),
+                dbc.Row(create_receiver_selector('point')),
+                dbc.Row([
+                    dbc.Col(dbc.Label('x-axis'), width=2),
+                    dbc.Col(dcc.Dropdown(id='point-x-axis', options=point_x_axis, value='ObsNum')),
+                ], className='mb-1'),
+                dbc.Row([
+                    dbc.Col(dbc.Label('y-axis'), width=2),
+                    dbc.Col(dcc.Dropdown(id='point-y-axis', multi=True, options=POINT_FIELDS,
+                                         value=point_fields_default))
+                ],
+                    className='mb-1')]),
+                dcc.Graph(figure=go.Figure(), id='point-plot')],style=PLOT_STYLE),
             create_compare_modal('point')
         ]
 

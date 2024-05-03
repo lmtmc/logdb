@@ -20,18 +20,18 @@ app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP,
                 )
 
 app.layout = html.Div([
-    html.H1('LMT QL DB PLOTS', style={'textAlign': 'center'}),
-    html.Br(),
-    dbc.Card(
+    html.H5('LMT QL DB PLOTS', style={'textAlign': 'left', 'padding': '10px', 'font-weight': 'bold',
+                                      'font-size': '30px', 'background-color': '#17a2b8', 'margin': '10px',}),
+    html.Div(
         [
                 dbc.Row([
                     dbc.Col(astig_plot, width=4),
                     dbc.Col(focus_plot, width=4),
                     dbc.Col(point_plot, width=4),
                 ], ),
-            ],style={'padding': '20px'})
+            ],style={'padding': '10px'})
 
-        ],style={ 'margin': '20px'})
+        ])
 
 # astig plot the data based on the selection
 @app.callback(
