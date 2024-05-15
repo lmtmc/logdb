@@ -6,6 +6,8 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 import datetime
 from datetime import timedelta, datetime
+import os
+
 
 # Define styles
 title_style = {'textAlign': 'center', 'margin': '10px','backgroundColor': '#17a2b8',}
@@ -17,21 +19,31 @@ lighter_outline_style = {
     'width': '20px',
     'margin': '0',
      'height': '20px',
-    'border-radius': '0',
-    'border-color': '#c0c0c0',  # Light gray color for the outline
+    'borderColor': '#c0c0c0',  # Light gray color for the outline
 }
 #Define constants
+# clean_base_dir = '/home/lmt/raw_data/lmtqldb/cleaned_data'
+# raw_base_dir = '/home/lmt/raw_data/lmtqldb/raw_data'
+clean_base_dir = '/home/lmtmc/lmtqldb/cleaned_data'
+raw_base_dir = '/raw/lmtqldb'
+folder_paths = {
+        'astigmatism': f'{clean_base_dir}/astigmatism_cleaned',
+        'focus': f'{clean_base_dir}/focus_cleaned',
+        'pointing': f'{clean_base_dir}/pointing_cleaned',
+        'tel': f'{raw_base_dir}/tel'
+    }
+
 astig_fields = ['M1ZC0']
 focus_fields = ['M2XOffset', 'M2YOffset', 'M2ZOffset']
-point_fields = [
+pointing_fields = [
     'AzPointOffset', 'ElPointOffset', 'Flag', 'FitFlag', 'FitRegion', 'PeakValue', 'PeakError', 'AzMapOffset',
     'ElMapOffset', 'AzMapOffsetError', 'ElMapOffsetError', 'AzHpbw', 'ElHpbw', 'AzHpbwError', 'ElHpbwError',
     'PeakSnrValue', 'PeakSnrError', 'PixelList'
 ]
-point_x_axis = ['ObsNum', 'Time', 'Telescope_AzDesPos', 'Telescope_ElDesPos', 'AzPointOffset']
+pointing_x_axis = ['ObsNum', 'Time', 'Telescope_AzDesPos', 'Telescope_ElDesPos', 'AzPointOffset']
 astig_fields_default = astig_fields[0]
 focus_fields_default = focus_fields[2]
-point_fields_default = point_fields[0:2]
+pointing_fields_default = pointing_fields[0:2]
 default_receivers = [
     'HoloReceiver',
     'RedshiftReceiver',
@@ -46,11 +58,58 @@ default_receivers = [
     'Toltec']
 
 
-# Get a pandas dataframe from a CSV file
-def get_df(csv_file):
-    df = pd.read_csv(f'./lmtqldb/{csv_file}.csv')
-    df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-    return df
+
+# Get a pandas dataframe from a CSV file based on selected date range
+def load_data(folder_path, start_date, end_date):
+    dataframes = []
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.csv'):
+            file_date_str = filename.split('_')[1].split('.')[0] if 'tel' in folder_path \
+                else filename.split('_')[2].split('.')[0]
+            try:
+                file_date = pd.to_datetime(file_date_str)
+            except ValueError:
+                print(f"Error in file date: {filename}")
+                continue
+
+            if start_date <= file_date <= end_date:
+                file_path = os.path.join(folder_path, filename)
+                df = pd.read_csv(file_path)
+                if not df.empty:
+                    df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
+                    dataframes.append(df)
+    if not dataframes:
+        return pd.DataFrame()
+
+    return pd.concat(dataframes, ignore_index=True)
+def get_df(name, start_date, end_date):
+
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+    if name == 'astig':
+       name = 'astigmatism'
+
+    if name in ['astigmatism', 'focus']:
+        df = load_data(folder_paths[name], start_date, end_date)
+        return df
+    # additional handling for pointing data
+    elif name == 'pointing':
+        df_point = load_data(folder_paths['pointing'], start_date, end_date)
+
+        df_tel = load_data(folder_paths['tel'], start_date, end_date)
+
+        df_tel = df_tel.drop_duplicates(subset='ObsNum', keep='first')
+        df_tel = df_tel[['ObsNum', 'Telescope_AzDesPos', 'Telescope_ElDesPos']]
+
+        if df_point.empty or df_tel.empty:
+            return pd.DataFrame()
+        df = pd.merge(df_point, df_tel, on='ObsNum', how='inner')
+        return df
+    else:
+        raise ValueError(f"Invalid name: {name}")
+        return pd.DataFrame()
+
+
 # Get the fields for a given name
 def get_fields(name):
     fields_var_name = f'{name}_fields'
@@ -58,14 +117,14 @@ def get_fields(name):
     return fields
 
 # Get the range of the data
-def get_range(name):
-    df = get_df(name)
+def get_range(name, start_date, end_date):
+    df = get_df(name, start_date, end_date)
     return df['ObsNum'].min(), df['ObsNum'].max(), df['DateTime'].min(), df['DateTime'].max()
 
 def get_x_axis(name):
     if name == 'astig' or name == 'focus':
         return ['ObsNum','Time']
-    elif name == 'point':
+    elif name == 'pointing':
         return ['ObsNum', 'Time', 'Telescope_AzDesPos', 'Telescope_ElDesPos', 'AzPointOffset']
 
 def adjust_date_range(triggered_id,start_date,end_date):
@@ -142,12 +201,12 @@ def create_time_buttons(name):
             width='auto',
             style={'padding': '0', 'margin': '0'},
         ),
-        # Last Week
+        # Previous Week
         dbc.Col(
             dbc.Button(
                 html.I(className='fas fa-calendar-week'),
                 id=f'{name}-last-week',
-                title='Last Week',
+                title='Previous Week',
                 style=lighter_outline_style,
                 outline=True,
             ),
@@ -240,10 +299,13 @@ def create_obsnum_selector(name):
                             dbc.Row([
                                 dbc.Col(dbc.Label('ObsNum'), width='auto'),
                                 dbc.Col(dcc.Input(id=f'{name}-obsnum-start', type='number',style=NUMBER_INPUT_STYLE,
-                                                  value=get_obsnum_range(name)[0]),width='auto'),
+                                                  value=get_obsnum_range(datetime.now() - timedelta(days=7), datetime.now())[0]
+                                                  ),
+                                        width='auto'),
                                 dbc.Col(dbc.Label('to'), width='auto', style={'textAlign': 'center'}),
                                 dbc.Col(dcc.Input(id=f'{name}-obsnum-end', type='number',style=NUMBER_INPUT_STYLE,
-                                        value=get_obsnum_range(name)[1]),width='auto'),
+                                        value=get_obsnum_range(datetime.now() - timedelta(days=7), datetime.now())[1]
+                                                  ),width='auto'),
                             ],align='center'),
                         ], className='mb-1'
                     ),
@@ -327,13 +389,39 @@ def get_receivers(name):
                         ]
     elif name == 'focus':
         receivers = [default_receivers[i] for i in [1,2,3,5,6,7,9,10]]
-    elif name == 'point':
+    elif name == 'pointing':
         receivers = default_receivers
     return receivers
 
-def get_obsnum_range(name):
-    df = get_df(name)
-    return int(df['ObsNum'].min()), int(df['ObsNum'].max())
+def get_obsnum_range(start_date, end_date):
+    df_astig = get_df('astig', start_date, end_date)
+    df_focus = get_df('focus', start_date, end_date)
+    df_pointing = get_df('pointing', start_date, end_date)
+
+
+    obsnum_start_list = []
+    obsnum_end_list = []
+
+    # Check if DataFrame is not empty before accessing 'ObsNum'
+    if not df_astig.empty:
+        obsnum_start_list.append(df_astig['ObsNum'].min())
+        obsnum_end_list.append(df_astig['ObsNum'].max())
+    if not df_focus.empty:
+        obsnum_start_list.append(df_focus['ObsNum'].min())
+        obsnum_end_list.append(df_focus['ObsNum'].max())
+    if not df_pointing.empty:
+        obsnum_start_list.append(df_pointing['ObsNum'].min())
+        obsnum_end_list.append(df_pointing['ObsNum'].max())
+
+    # If no valid 'ObsNum' values are found, return None or appropriate default values
+    if not obsnum_start_list or not obsnum_end_list:
+        return None, None
+
+    obsnum_start = min(obsnum_start_list)
+    obsnum_end = max(obsnum_end_list)
+
+    return obsnum_start, obsnum_end
+
 
 def make_plot(name, date_start, date_end, obsnum_start, obsnum_end, receivers, x_axis, selected_fields):
     if selected_fields is None:
@@ -341,28 +429,21 @@ def make_plot(name, date_start, date_end, obsnum_start, obsnum_end, receivers, x
     if not isinstance(selected_fields, list):
         selected_fields = [selected_fields]
     # Get the dataframe
-    df = get_df(name)
-
-    if x_axis == 'Telescope_AzDesPos' or x_axis == 'Telescope_ElDesPos' or x_axis == 'ElPointOffset':
-        df = get_df('point_tel')
-    if not all(field in df.columns for field in selected_fields):
-        invalid_fields = [field for field in selected_fields if field not in df.columns]
-        raise KeyError(f"The following selected fields are invalid: {', '.join(invalid_fields)}")
-
-    # Apply filters
-    mask_date = (df['DateTime'] >= date_start) & (df['DateTime'] <= date_end)
-    df_date = df[mask_date]
-    # if receivers and len(receivers) > 0:
-    df_date = df_date[df_date['Receiver'].isin(receivers)]
-
-    mask_obsnum = (df_date['ObsNum'] >= obsnum_start) & (df_date['ObsNum'] <= obsnum_end)
-    df = df_date[mask_obsnum]
-    # If no selected fields, return an empty plot with an annotation
-    if not selected_fields or not x_axis:
+    df = get_df(name,date_start,date_end)
+    if not selected_fields or not x_axis or x_axis not in df.columns or df.empty:
         fig = go.Figure()
         fig.add_annotation(text='No data selected', showarrow=False, xref='paper', yref='paper', x=0.5, y=0.5)
         return fig
 
+    # Apply filters
+    # if receivers and len(receivers) > 0:
+    df_receivers = df[df['Receiver'].isin(receivers)]
+    mask_obsnum = (df['ObsNum'] >= obsnum_start) & (df['ObsNum'] <= obsnum_end)
+    df = df_receivers[mask_obsnum]
+    if df.empty:
+        fig = go.Figure()
+        fig.add_annotation(text='No data selected', showarrow=False, xref='paper', yref='paper', x=0.5, y=0.5)
+        return fig
     # Set row heights and create subplots
     num_rows = len(selected_fields)
     min_row_height = 200
@@ -388,32 +469,19 @@ def make_plot(name, date_start, date_end, obsnum_start, obsnum_end, receivers, x
             fig.update_yaxes(title_text=f'{y}', row=idx, col=1)
         fig.update_xaxes(title_text=f'{x_axis}', row=num_rows, col=1)
         fig.update_layout(height=total_height, showlegend=False, margin=dict(l=50, r=50, t=50, b=50))
-
-    # fig.update_xaxes(rangeslider_visible=True,
-    #                  rangeselector=dict(
-    #                      buttons=list([
-    #                          dict(count=7, label="1w", step="day", stepmode="backward"),
-    #                          dict(count=6, label="1m", step="month", stepmode="backward"),
-    #                          dict(count=1, label="YTD", step="year", stepmode="todate"),
-    #                          dict(count=1, label="1y", step="year", stepmode="backward"),
-    #                          dict(step="all")
-    #                      ])
-    #                  ),
-    #                  row=num_rows, col=1)
-
     return fig
 # dash layout components
 
-def make_compare_plot(name, start_date, end_date, compare_start_date, compare_end_date, obsnum_start, obsnum_end, receivers, x_axis, y_axis):
-    title1 = f'{pd.to_datetime(start_date).date()} to {pd.to_datetime(end_date).date()} '
-    title2 = f'{pd.to_datetime(start_date).date()} to {pd.to_datetime(compare_end_date).date()}'
-    fig = make_subplots(rows=1, cols=2, subplot_titles=(title1, title2))
-    fig.add_trace(make_plot(name, start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, y_axis).data[0],
-                  row=1, col=1)
-    fig.add_trace(make_plot(name, compare_start_date, compare_end_date, obsnum_start, obsnum_end, receivers, x_axis,
-                            y_axis).data[0], row=1, col=2)
-    fig.update_layout(showlegend=False)
-    return fig
+# def make_compare_plot(name, start_date, end_date, compare_start_date, compare_end_date, obsnum_start, obsnum_end, receivers, x_axis, y_axis):
+#     title1 = f'{pd.to_datetime(start_date).date()} to {pd.to_datetime(end_date).date()} '
+#     title2 = f'{pd.to_datetime(start_date).date()} to {pd.to_datetime(compare_end_date).date()}'
+#     fig = make_subplots(rows=1, cols=2, subplot_titles=(title1, title2))
+#     fig.add_trace(make_plot(name, start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, y_axis).data[0],
+#                   row=1, col=1)
+#     fig.add_trace(make_plot(name, compare_start_date, compare_end_date, obsnum_start, obsnum_end, receivers, x_axis,
+#                             y_axis).data[0], row=1, col=2)
+#     fig.update_layout(showlegend=False)
+#     return fig
 def create_date_selector(name):
     return html.Div([
         dbc.Row([
@@ -455,7 +523,7 @@ def plot_content(name):
 plots = html.Div(dbc.Row([
     dbc.Col(plot_content('astig'), width=4),
     dbc.Col(plot_content('focus'), width=4),
-    dbc.Col(plot_content('point'), width=4),]),
+    dbc.Col(plot_content('pointing'), width=4),]),
 )
 
 same_setting = html.Div(
@@ -464,14 +532,16 @@ same_setting = html.Div(
             dbc.Col(create_date_selector('same'), width='auto'),
             dbc.Col(dbc.Label('ObsNum'), width='auto'),
             dbc.Col(dcc.Input(id='same-obsnum-start', type='number', style=NUMBER_INPUT_STYLE,
-                                value=get_obsnum_range('point')[0]), width='auto'),
+
+                              ), width='auto'),
             dbc.Col(dbc.Label('to'),width='auto'),
             dbc.Col(dcc.Input(id='same-obsnum-end', type='number', style=NUMBER_INPUT_STYLE,
-                              value=get_obsnum_range('point')[1]), width='auto'),
+
+                              ), width='auto'),
             dbc.Col(dbc.Label('Receivers'), width='auto'),
-            dbc.Col(dbc.Checklist(id='same-receiver', options=get_receivers('point'), value=get_receivers('point'), inline=True)),
+            dbc.Col(dbc.Checklist(id='same-receiver', options=get_receivers('pointing'), value=get_receivers('pointing'), inline=True)),
             dbc.Col(dbc.Label('x-axis'), width='auto'),
-            dbc.Col(dcc.Dropdown(id='same-x-axis', options=point_x_axis, value='ObsNum'), width='2'),
+            dbc.Col(dcc.Dropdown(id='same-x-axis', options=pointing_x_axis, value='ObsNum'), width='2'),
         ]),
 
     ], style={'padding': '20px'})
