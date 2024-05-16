@@ -1,7 +1,7 @@
 # todo update database automatically
 # add a unselect all button
 import dash
-from dash import html, Input, Output, State, ctx, no_update
+from dash import html, Input, Output, State, ctx, no_update, dcc
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from layout import (title, same_setting, plots, make_plot, adjust_date_range,get_obsnum_range)
@@ -23,7 +23,9 @@ app.layout = html.Div([
 
     html.Div(title),
     html.Div(id = 'same-setting', children=same_setting),
-    html.Div(plots)])
+    html.Div(plots),
+    dcc.Store(id='store_df')
+    ])
 
 # update date range for same setting
 @app.callback(
@@ -35,13 +37,13 @@ app.layout = html.Div([
     Input('same-next-month', 'n_clicks'),
     Input('same-last-year', 'n_clicks'),
     Input('same-next-year', 'n_clicks'),
-    Input('same-all-data', 'n_clicks'),
+    # Input('same-all-data', 'n_clicks'),
     Input('same-this-week', 'n_clicks'),
     State('same-date-picker-range', 'start_date'),
     State('same-date-picker-range', 'end_date'),
     prevent_initial_call=True
 )
-def update_same_date(prev_week, next_week, prev_month, next_month, prev_year, next_year, all_data, today, start_date, end_date):
+def update_same_date(prev_week, next_week, prev_month, next_month, prev_year, next_year,today, start_date, end_date):
     start_date, end_date = adjust_date_range(ctx.triggered_id, start_date, end_date)
     return start_date, end_date
 
@@ -243,5 +245,5 @@ update_pointing_obsnum_range = create_obsnum_range_callback('pointing')
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
 

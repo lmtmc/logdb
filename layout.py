@@ -22,15 +22,17 @@ lighter_outline_style = {
     'borderColor': '#c0c0c0',  # Light gray color for the outline
 }
 #Define constants
-# clean_base_dir = '/home/lmt/raw_data/lmtqldb/cleaned_data'
-# raw_base_dir = '/home/lmt/raw_data/lmtqldb/raw_data'
 clean_base_dir = '/home/lmtmc/lmtqldb/cleaned_data'
 raw_base_dir = '/raw/lmtqldb'
+
+clean_base_dir = '/home/lmt/raw_data/lmtqldb/cleaned_data'
+raw_base_dir = '/home/lmt/raw_data/lmtqldb/raw_data'
+
 folder_paths = {
         'astigmatism': f'{clean_base_dir}/astigmatism_cleaned',
         'focus': f'{clean_base_dir}/focus_cleaned',
         'pointing': f'{clean_base_dir}/pointing_cleaned',
-        'tel': f'{raw_base_dir}/tel'
+        'tel': f'{raw_base_dir}/tel',
     }
 
 astig_fields = ['M1ZC0']
@@ -154,9 +156,9 @@ def adjust_date_range(triggered_id,start_date,end_date):
         start_date = pd.to_datetime(end_date)
         end_date = start_date + pd.DateOffset(years=1)
 
-    elif triggered_id == 'all-data':
-        start_date = get_range('astig')[2]
-        end_date = get_range('astig')[3]
+    # elif triggered_id == 'all-data':
+    #     start_date = get_range('astig')[2]
+    #     end_date = get_range('astig')[3]
 
     elif triggered_id == 'this-week':
         # set start_date to today
@@ -279,17 +281,17 @@ def create_time_buttons(name):
             width='auto',
             style={'padding': '0', 'margin': '0'},
         ),
-        dbc.Col(
-            dbc.Button(
-                html.I(className='fas fa-calendar-day'),
-                id=f'{name}-all-data',
-                title='All Time',
-                style=lighter_outline_style,
-                outline=True,
-            ),
-            width='auto',
-            style={'padding': '0', 'margin': '0'},
-        ),
+        # dbc.Col(
+        #     dbc.Button(
+        #         html.I(className='fas fa-calendar-day'),
+        #         id=f'{name}-all-data',
+        #         title='All Time',
+        #         style=lighter_outline_style,
+        #         outline=True,
+        #     ),
+        #     width='auto',
+        #     style={'padding': '0', 'margin': '0'},
+        # ),
     ],
     style={'padding': '0', 'margin': '0'}, justify='end'
 )
