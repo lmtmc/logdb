@@ -369,8 +369,8 @@ def create_compare_modal(name):
                 ], align='center', className='mb-1'),
                 dbc.Row(create_filter(name)),
                 dbc.Row([
-                    dbc.Col(dcc.Graph(figure=go.Figure(), id=f'{name}-compare-plot1')),
-                    dbc.Col(dcc.Graph(figure=go.Figure(), id=f'{name}-compare-plot2'))]
+                    dbc.Col(dcc.Loading(dcc.Graph(figure=go.Figure(), id=f'{name}-compare-plot1'))),
+                    dbc.Col(dcc.Loading(dcc.Graph(figure=go.Figure(), id=f'{name}-compare-plot2')))]
                 ),
             ]
         ),
@@ -516,7 +516,7 @@ def plot_content(name):
             dbc.Col(dcc.Dropdown(id=f'{name}-y-axis', multi=True, options=get_fields(name),
                                  value=value)),
         ],className='mb-1'),
-        dcc.Graph(figure=go.Figure(), id=f'{name}-plot')], style=PLOT_STYLE),
+        dcc.Loading(dcc.Graph(figure=go.Figure(), id=f'{name}-plot'))], style=PLOT_STYLE),
         create_compare_modal(f'{name}')
     ])
 

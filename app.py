@@ -55,14 +55,45 @@ def update_same_date(prev_week, next_week, prev_month, next_month, prev_year, ne
 def update_same_obsnum_range(start_date, end_date):
     return get_obsnum_range(start_date, end_date)
 
-# use same setting to plot astig, focus and pointing
+
+# Callback for updating astig-plot
 @app.callback(
     Output('astig-plot', 'figure'),
-    Output('focus-plot', 'figure'),
-    Output('pointing-plot', 'figure'),
     Input('same-x-axis', 'value'),
     Input('astig-y-axis', 'value'),
+    Input('same-date-picker-range', 'start_date'),
+    Input('same-date-picker-range', 'end_date'),
+    Input('same-obsnum-start', 'value'),
+    Input('same-obsnum-end', 'value'),
+    Input('same-receiver', 'value'),
+)
+def update_astig_plot(x_axis, astig_y_axis, start_date, end_date, obsnum_start, obsnum_end, receivers):
+    try:
+        return make_plot('astig', start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, astig_y_axis)
+    except Exception as e:
+        return no_update
+
+# Callback for updating focus-plot
+@app.callback(
+    Output('focus-plot', 'figure'),
+    Input('same-x-axis', 'value'),
     Input('focus-y-axis', 'value'),
+    Input('same-date-picker-range', 'start_date'),
+    Input('same-date-picker-range', 'end_date'),
+    Input('same-obsnum-start', 'value'),
+    Input('same-obsnum-end', 'value'),
+    Input('same-receiver', 'value'),
+)
+def update_focus_plot(x_axis, focus_y_axis, start_date, end_date, obsnum_start, obsnum_end, receivers):
+    try:
+        return make_plot('focus', start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, focus_y_axis)
+    except Exception as e:
+        return no_update
+
+# Callback for updating pointing-plot
+@app.callback(
+    Output('pointing-plot', 'figure'),
+    Input('same-x-axis', 'value'),
     Input('pointing-y-axis', 'value'),
     Input('same-date-picker-range', 'start_date'),
     Input('same-date-picker-range', 'end_date'),
@@ -70,20 +101,11 @@ def update_same_obsnum_range(start_date, end_date):
     Input('same-obsnum-end', 'value'),
     Input('same-receiver', 'value'),
 )
-def update_same_setting(x_axis, astig_y_axis, focus_y_axis, pointing_y_axis, start_date, end_date, obsnum_start, obsnum_end, receivers):
+def update_pointing_plot(x_axis, pointing_y_axis, start_date, end_date, obsnum_start, obsnum_end, receivers):
     try:
-        astig_fig = make_plot('astig', start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, astig_y_axis)
+        return make_plot('pointing', start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, pointing_y_axis)
     except Exception as e:
-        astig_fig = no_update
-    try:
-        focus_fig = make_plot('focus', start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, focus_y_axis)
-    except Exception as e:
-        focus_fig = no_update
-    try:
-        pointing_fig = make_plot('pointing', start_date, end_date, obsnum_start, obsnum_end, receivers, x_axis, pointing_y_axis)
-    except Exception as e:
-        pointing_fig = no_update
-    return astig_fig, focus_fig, pointing_fig
+        return no_update
 
 def create_toggle_and_update_modal_callback(modal_type):
     @app.callback(
@@ -147,15 +169,39 @@ def create_obsnum_range_callback(modal_type):
         return start, end
 
     return update_obsnum_range
-def create_update_plot_callback(modal_type):
+
+
+def create_update_plot1_callback(modal_type):
     @app.callback(
-        [
-            Output(f'{modal_type}-compare-plot1', 'figure'),
-            Output(f'{modal_type}-compare-plot2', 'figure')
-        ],
+        Output(f'{modal_type}-compare-plot1', 'figure'),
         [
             Input(f'{modal_type}-compare-date-picker-range1', 'start_date'),
             Input(f'{modal_type}-compare-date-picker-range1', 'end_date'),
+            Input(f'{modal_type}-obsnum-start', 'value'),
+            Input(f'{modal_type}-obsnum-end', 'value'),
+            Input(f'{modal_type}-receiver', 'value'),
+            Input(f'{modal_type}-x-axis', 'value'),
+            Input(f'{modal_type}-compare-y-axis', 'value')
+        ],
+        prevent_initial_call=True
+    )
+    def update_plot1(start_date1, end_date1, obsnum_start, obsnum_end, receivers, x_axis, y_axis):
+        try:
+            if None in [start_date1, end_date1, obsnum_start, obsnum_end, receivers, x_axis, y_axis]:
+                print("One or more inputs are None, skipping plot update.")
+                return {}
+            fig1 = make_plot(modal_type, start_date1, end_date1, obsnum_start, obsnum_end, receivers, x_axis, y_axis)
+            return fig1
+        except Exception as e:
+            print(f"Error generating plots: {e}")
+            return {}
+
+    return update_plot1
+
+def create_update_plot2_callback(modal_type):
+    @app.callback(
+        Output(f'{modal_type}-compare-plot2', 'figure'),
+        [
             Input(f'{modal_type}-compare-date-picker-range2', 'start_date'),
             Input(f'{modal_type}-compare-date-picker-range2', 'end_date'),
             Input(f'{modal_type}-obsnum-start', 'value'),
@@ -166,35 +212,33 @@ def create_update_plot_callback(modal_type):
         ],
         prevent_initial_call=True
     )
-    def update_plot(start_date1, end_date1, start_date2, end_date2, obsnum_start, obsnum_end, receivers, x_axis, y_axis):
+    def update_plot2(start_date2, end_date2, obsnum_start, obsnum_end, receivers, x_axis, y_axis):
         try:
-            if None in [start_date1, end_date1, start_date2, end_date2, obsnum_start, obsnum_end, receivers, x_axis, y_axis]:
+            if None in [start_date2, end_date2, obsnum_start, obsnum_end, receivers, x_axis, y_axis]:
                 print("One or more inputs are None, skipping plot update.")
-                return {}, {}
-            fig1 = make_plot(modal_type, start_date1, end_date1, obsnum_start, obsnum_end, receivers, x_axis, y_axis)
-
+                return {}
             fig2 = make_plot(modal_type, start_date2, end_date2, obsnum_start, obsnum_end, receivers, x_axis, y_axis)
-
-            return fig1, fig2
-
+            return fig2
         except Exception as e:
             print(f"Error generating plots: {e}")
-            return {}, {}
+            return {}
 
-    return update_plot
-
+    return update_plot2
 
 # Create callbacks for each type
 toggle_and_update_astig = create_toggle_and_update_modal_callback('astig')
-update_astig_plots = create_update_plot_callback('astig')
+update_astig_plot1 = create_update_plot1_callback('astig')
+update_astig_plots2 = create_update_plot2_callback('astig')
 update_astig_obsnum_range = create_obsnum_range_callback('astig')
 
 toggle_and_update_focus = create_toggle_and_update_modal_callback('focus')
-update_focus_plots = create_update_plot_callback('focus')
+update_focus_plot1 = create_update_plot1_callback('focus')
+update_focus_plots2 = create_update_plot2_callback('focus')
 update_focus_obsnum_range = create_obsnum_range_callback('focus')
 
 toggle_and_update_pointing = create_toggle_and_update_modal_callback('pointing')
-update_pointing_plots = create_update_plot_callback('pointing')
+update_pointing_plot1 = create_update_plot1_callback('pointing')
+update_pointing_plots2 = create_update_plot2_callback('pointing')
 update_pointing_obsnum_range = create_obsnum_range_callback('pointing')
 
 
