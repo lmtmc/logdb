@@ -245,5 +245,5 @@ update_pointing_obsnum_range = create_obsnum_range_callback('pointing')
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
 

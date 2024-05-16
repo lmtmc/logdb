@@ -25,8 +25,8 @@ lighter_outline_style = {
 clean_base_dir = '/home/lmtmc/lmtqldb/cleaned_data'
 raw_base_dir = '/raw/lmtqldb'
 
-clean_base_dir = '/home/lmt/raw_data/lmtqldb/cleaned_data'
-raw_base_dir = '/home/lmt/raw_data/lmtqldb/raw_data'
+# clean_base_dir = '/home/lmt/raw_data/lmtqldb/cleaned_data'
+# raw_base_dir = '/home/lmt/raw_data/lmtqldb/raw_data'
 
 folder_paths = {
         'astigmatism': f'{clean_base_dir}/astigmatism_cleaned',
