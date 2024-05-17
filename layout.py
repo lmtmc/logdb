@@ -24,7 +24,7 @@ lighter_outline_style = {
 #Define constants
 clean_base_dir = '/home/lmtmc/lmtqldb/cleaned_data'
 raw_base_dir = '/raw/lmtqldb'
-
+#
 # clean_base_dir = '/home/lmt/raw_data/lmtqldb/cleaned_data'
 # raw_base_dir = '/home/lmt/raw_data/lmtqldb/raw_data'
 
@@ -100,12 +100,19 @@ def get_df(name, start_date, end_date):
 
         df_tel = load_data(folder_paths['tel'], start_date, end_date)
 
-        df_tel = df_tel.drop_duplicates(subset='ObsNum', keep='first')
-        df_tel = df_tel[['ObsNum', 'Telescope_AzDesPos', 'Telescope_ElDesPos']]
-
         if df_point.empty or df_tel.empty:
             return pd.DataFrame()
+
+        df_tel = df_tel.drop_duplicates(subset='ObsNum', keep='first')
+        required_columns = ['ObsNum', 'Telescope_AzDesPos', 'Telescope_ElDesPos']
+        if not all(col in df_tel.columns for col in required_columns):
+            print(f"Required columns not found in df_tel: {required_columns}")
+            return pd.DataFrame()
+
+        df_tel = df_tel[required_columns]
         df = pd.merge(df_point, df_tel, on='ObsNum', how='inner')
+        if df.empty:
+            return pd.DataFrame()
         return df
     else:
         raise ValueError(f"Invalid name: {name}")
