@@ -6,6 +6,7 @@ from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 from layout import (title, same_setting, plots, make_plot, adjust_date_range,get_obsnum_range)
 import flask
+from datetime import timedelta, datetime
 
 prefix = '/lmtqldb/'
 
@@ -24,9 +25,17 @@ app.layout = html.Div([
     html.Div(title),
     html.Div(id = 'same-setting', children=same_setting),
     html.Div(plots),
-    dcc.Store(id='store_df')
+    dcc.Interval(id = 'interval-component', interval = 1000 * 60 * 60 * 24, n_intervals = 0)
     ])
 
+@app.callback(
+    Output('same-date-picker-range', 'start_date'),
+    Output('same-date-picker-range', 'end_date'),
+    Input('interval-component', 'n_intervals'),
+    prevent_initial_call=True
+)
+def update_start_date(n):
+    return datetime.now() - timedelta(days=7), datetime.now()
 # update date range for same setting
 @app.callback(
     Output('same-date-picker-range', 'start_date'),
@@ -245,5 +254,5 @@ update_pointing_obsnum_range = create_obsnum_range_callback('pointing')
 
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
 
