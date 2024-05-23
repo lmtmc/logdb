@@ -29,8 +29,8 @@ app.layout = html.Div([
     ])
 
 @app.callback(
-    Output('same-date-picker-range', 'start_date'),
-    Output('same-date-picker-range', 'end_date'),
+    Output('same-date-picker-range', 'start_date',allow_duplicate=True),
+    Output('same-date-picker-range', 'end_date',allow_duplicate=True),
     Input('interval-component', 'n_intervals'),
     prevent_initial_call=True
 )
@@ -254,5 +254,5 @@ update_pointing_obsnum_range = create_obsnum_range_callback('pointing')
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
 
