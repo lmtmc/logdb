@@ -32,7 +32,6 @@ app.layout = html.Div([
     Output('same-date-picker-range', 'start_date',allow_duplicate=True),
     Output('same-date-picker-range', 'end_date',allow_duplicate=True),
     Input('interval-component', 'n_intervals'),
-    prevent_initial_call=True
 )
 def update_start_date(n):
     return datetime.now() - timedelta(days=7), datetime.now()
