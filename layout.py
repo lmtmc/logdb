@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import datetime
 from datetime import timedelta, datetime
 import os
-
+import concurrent.futures
 
 # Define styles
 title_style = {'textAlign': 'center', 'margin': '10px','backgroundColor': '#17a2b8',}
@@ -27,7 +27,7 @@ raw_base_dir = '/raw/lmtqldb'
 #
 # clean_base_dir = '/home/lmt/raw_data/lmtqldb/cleaned_data'
 # raw_base_dir = '/home/lmt/raw_data/lmtqldb/raw_data'
-
+index_dir = os.path.join(clean_base_dir, 'index')
 folder_paths = {
         'astigmatism': f'{clean_base_dir}/astigmatism_cleaned',
         'focus': f'{clean_base_dir}/focus_cleaned',
@@ -59,31 +59,71 @@ default_receivers = [
     'Muscat',
     'Toltec']
 
+def create_index_file(folder_path,index_filename):
+    index_data = []
 
-
-# Get a pandas dataframe from a CSV file based on selected date range
-def load_data(folder_path, start_date, end_date):
-    dataframes = []
     for filename in os.listdir(folder_path):
         if filename.endswith('.csv'):
-            file_date_str = filename.split('_')[1].split('.')[0] if 'tel' in folder_path \
-                else filename.split('_')[2].split('.')[0]
             try:
-                file_date = pd.to_datetime(file_date_str)
-            except ValueError:
-                print(f"Error in file date: {filename}")
+                parts = filename.split('_')
+                date_str = parts[1].split('.')[0] if 'tel' in folder_path else parts[2].split('.')[0]
+                file_date = pd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce')
+                if not pd.isnull(file_date):
+                    index_data.append([filename, file_date])
+            except Exception as e:
+                print(f"Error processing file {filename}: {e}")
                 continue
+    if index_data:
+        index_df = pd.DataFrame(index_data, columns=['filename', 'file_date'])
+        index_df = index_df.sort_values(by='file_date').reset_index(drop=True)
+        # Ensure the directory exists
+        os.makedirs(index_dir, exist_ok=True)
+        index_df.to_csv(os.path.join(index_dir, index_filename), index=False)
+    else:
+        print(f"No valid files found in {folder_path}")
 
-            if start_date <= file_date <= end_date:
-                file_path = os.path.join(folder_path, filename)
-                df = pd.read_csv(file_path)
-                if not df.empty:
-                    df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
-                    dataframes.append(df)
+def create_index_files():
+    for folder_key, folder_path in folder_paths.items():
+        create_index_file(folder_path, f'{folder_key}.csv')
+
+create_index_files()
+def load_data(folder_path, start_date, end_date):
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+
+    if 'astigmatism' in folder_path:
+        index_filename = 'astigmatism.csv'
+    elif 'focus' in folder_path:
+        index_filename = 'focus.csv'
+    elif 'pointing' in folder_path:
+        index_filename = 'pointing.csv'
+    elif 'tel' in folder_path:
+        index_filename = 'tel.csv'
+    else:
+        raise ValueError(f"Invalid folder_path: {folder_path}")
+
+    index_df = pd.read_csv(os.path.join(index_dir, index_filename))
+    index_df['file_date'] = pd.to_datetime(index_df['file_date'])
+
+    valid_files = index_df[(index_df['file_date'] >= start_date) & (index_df['file_date'] <= end_date)][
+        'filename'].tolist()
+    def read_and_process_file(filename):
+        file_path = os.path.join(folder_path, filename)
+        df = pd.read_csv(file_path)
+        if not df.empty:
+            df['DateTime'] = pd.to_datetime(df['Date'] + ' ' + df['Time'])
+        return df
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        dataframes = list(executor.map(read_and_process_file, valid_files))
+
+    dataframes = [df for df in dataframes if not df.empty]
+
     if not dataframes:
         return pd.DataFrame()
 
     return pd.concat(dataframes, ignore_index=True)
+
 def get_df(name, start_date, end_date):
 
     start_date = pd.to_datetime(start_date)

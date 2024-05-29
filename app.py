@@ -4,7 +4,7 @@ import dash
 from dash import html, Input, Output, State, ctx, no_update, dcc
 from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
-from layout import (title, same_setting, plots, make_plot, adjust_date_range,get_obsnum_range)
+from layout import (title, same_setting, plots, make_plot, adjust_date_range,get_obsnum_range,create_index_files)
 import flask
 from datetime import timedelta, datetime
 
@@ -34,6 +34,7 @@ app.layout = html.Div([
     Input('interval-component', 'n_intervals'),
 )
 def update_start_date(n):
+    create_index_files()
     return datetime.now() - timedelta(days=7), datetime.now()
 # update date range for same setting
 @app.callback(
