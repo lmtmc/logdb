@@ -34,8 +34,11 @@ app.layout = html.Div([
     Input('interval-component', 'n_intervals'),
 )
 def update_start_date(n):
+
     create_index_files()
-    return datetime.now() - timedelta(days=7), datetime.now()
+    start_date = datetime.now() - timedelta(days=7)
+    end_date = datetime.now()
+    return start_date, end_date
 # update date range for same setting
 @app.callback(
     Output('same-date-picker-range', 'start_date'),
