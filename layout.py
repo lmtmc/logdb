@@ -59,20 +59,34 @@ default_receivers = [
     'Muscat',
     'Toltec']
 
-def create_index_file(folder_path,index_filename):
+
+def create_index_file(folder_path, index_filename):
     index_data = []
 
     for filename in os.listdir(folder_path):
         if filename.endswith('.csv'):
             try:
                 parts = filename.split('_')
-                date_str = parts[1].split('.')[0] if 'tel' in folder_path else parts[2].split('.')[0]
+
+                if 'tel' in folder_path:
+                    date_str = parts[1].split('.')[0] if len(parts) > 1 else None
+                else:
+                    date_str = parts[2].split('.')[0] if len(parts) > 2 else None
+
+                if date_str is None:
+                    print(f"Error processing file {filename}: Unable to extract date part")
+                    continue
+
                 file_date = pd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce')
-                if not pd.isnull(file_date):
-                    index_data.append([filename, file_date])
+                if pd.isnull(file_date):
+                    print(f"Error processing file {filename}: Invalid date format")
+                    continue
+
+                index_data.append([filename, file_date])
             except Exception as e:
                 print(f"Error processing file {filename}: {e}")
                 continue
+
     if index_data:
         index_df = pd.DataFrame(index_data, columns=['filename', 'file_date'])
         index_df = index_df.sort_values(by='file_date').reset_index(drop=True)
@@ -81,7 +95,6 @@ def create_index_file(folder_path,index_filename):
         index_df.to_csv(os.path.join(index_dir, index_filename), index=False)
     else:
         print(f"No valid files found in {folder_path}")
-
 def create_index_files():
     for folder_key, folder_path in folder_paths.items():
         create_index_file(folder_path, f'{folder_key}.csv')
@@ -124,6 +137,15 @@ def load_data(folder_path, start_date, end_date):
 
     return pd.concat(dataframes, ignore_index=True)
 
+def get_dates(name):
+    if name == 'astig':
+       name = 'astigmatism'
+    index_filename = f'{name}.csv'
+    index_df = pd.read_csv(os.path.join(index_dir, index_filename))
+    dates = index_df['file_date'].tolist()
+    dates.reverse()
+    return dates
+
 def get_df(name, start_date, end_date):
 
     start_date = pd.to_datetime(start_date)
@@ -131,32 +153,29 @@ def get_df(name, start_date, end_date):
     if name == 'astig':
        name = 'astigmatism'
 
-    if name in ['astigmatism', 'focus']:
-        df = load_data(folder_paths[name], start_date, end_date)
-        return df
-    # additional handling for pointing data
-    elif name == 'pointing':
-        df_point = load_data(folder_paths['pointing'], start_date, end_date)
-
-        df_tel = load_data(folder_paths['tel'], start_date, end_date)
-
-        if df_point.empty or df_tel.empty:
-            return pd.DataFrame()
-
-        df_tel = df_tel.drop_duplicates(subset='ObsNum', keep='first')
-        required_columns = ['ObsNum', 'Telescope_AzDesPos', 'Telescope_ElDesPos']
-        if not all(col in df_tel.columns for col in required_columns):
-            print(f"Required columns not found in df_tel: {required_columns}")
-            return pd.DataFrame()
-
-        df_tel = df_tel[required_columns]
-        df = pd.merge(df_point, df_tel, on='ObsNum', how='inner')
-        if df.empty:
-            return pd.DataFrame()
-        return df
-    else:
-        raise ValueError(f"Invalid name: {name}")
+    df_main = load_data(folder_paths[name], start_date, end_date)
+    if df_main.empty:
         return pd.DataFrame()
+
+    df_tel = load_data(folder_paths['tel'], start_date, end_date)
+
+    if df_tel.empty:
+        return pd.DataFrame()
+
+    df_tel = df_tel.drop_duplicates(subset='ObsNum', keep='first')
+    required_columns = ['ObsNum', 'Telescope_AzDesPos', 'Telescope_ElDesPos']
+    if not all(col in df_tel.columns for col in required_columns):
+        print(f"Required columns not found in df_tel: {required_columns}")
+        return pd.DataFrame()
+
+    df_tel = df_tel[required_columns]
+    df = pd.merge(df_main, df_tel, on='ObsNum', how='inner')
+    if df.empty:
+        return pd.DataFrame()
+    df['Telescope_AzDesPos'] = df['Telescope_AzDesPos']*180/3.14159
+    df['Telescope_ElDesPos'] = df['Telescope_ElDesPos']*180/3.14159
+
+    return df
 
 
 # Get the fields for a given name
@@ -165,16 +184,12 @@ def get_fields(name):
     fields = globals().get(fields_var_name, [])
     return fields
 
-# Get the range of the data
-def get_range(name, start_date, end_date):
-    df = get_df(name, start_date, end_date)
-    return df['ObsNum'].min(), df['ObsNum'].max(), df['DateTime'].min(), df['DateTime'].max()
 
 def get_x_axis(name):
     if name == 'astig' or name == 'focus':
-        return ['ObsNum','Time']
+        return ['ObsNum','Time','Telescope_AzDesPos']
     elif name == 'pointing':
-        return ['ObsNum', 'Time', 'Telescope_AzDesPos', 'Telescope_ElDesPos', 'AzPointOffset']
+        return pointing_x_axis
 
 def adjust_date_range(triggered_id,start_date,end_date):
     triggered_id = triggered_id.split('-',1)[1]
@@ -203,10 +218,6 @@ def adjust_date_range(triggered_id,start_date,end_date):
         start_date = pd.to_datetime(end_date)
         end_date = start_date + pd.DateOffset(years=1)
 
-    # elif triggered_id == 'all-data':
-    #     start_date = get_range('astig')[2]
-    #     end_date = get_range('astig')[3]
-
     elif triggered_id == 'this-week':
         # set start_date to today
         end_date = pd.to_datetime(datetime.now().date())
@@ -222,13 +233,14 @@ def create_title(title, name):
                 dbc.Col(html.H5(title), width='auto', lg=6, md=6, sm=12),  # Adjust widths as needed
                 dbc.Col(
                     dbc.Button(
-                        [html.I(className='fas fa-plus'),'Another Plot'],  # Assuming 'solid' is a typo
+                        [html.I(className='fas fa-plus'),'Compare Plot'],  # Assuming 'solid' is a typo
                         id=f'{name}-another-range',
                         title='Add Another Range to Compare',
                         style={'color': '#17a2b8', 'backgroundColor': 'white'},
                     ),
-                    width='auto', lg=6, md=6, sm=12  # Adjust widths as needed
+                    width='auto'
                 ),
+
             ],
             style=title_style,  # Ensure this style supports side-by-side layout
             align='center',
@@ -328,17 +340,7 @@ def create_time_buttons(name):
             width='auto',
             style={'padding': '0', 'margin': '0'},
         ),
-        # dbc.Col(
-        #     dbc.Button(
-        #         html.I(className='fas fa-calendar-day'),
-        #         id=f'{name}-all-data',
-        #         title='All Time',
-        #         style=lighter_outline_style,
-        #         outline=True,
-        #     ),
-        #     width='auto',
-        #     style={'padding': '0', 'margin': '0'},
-        # ),
+
     ],
     style={'padding': '0', 'margin': '0'}, justify='end'
 )
@@ -348,12 +350,12 @@ def create_obsnum_selector(name):
                             dbc.Row([
                                 dbc.Col(dbc.Label('ObsNum'), width='auto'),
                                 dbc.Col(dcc.Input(id=f'{name}-obsnum-start', type='number',style=NUMBER_INPUT_STYLE,
-                                                  value=get_obsnum_range(datetime.now() - timedelta(days=7), datetime.now())[0]
+                                                  value=get_obsnum_range(name,datetime.now() - timedelta(days=7), datetime.now())[0]
                                                   ),
                                         width='auto'),
                                 dbc.Col(dbc.Label('to'), width='auto', style={'textAlign': 'center'}),
                                 dbc.Col(dcc.Input(id=f'{name}-obsnum-end', type='number',style=NUMBER_INPUT_STYLE,
-                                        value=get_obsnum_range(datetime.now() - timedelta(days=7), datetime.now())[1]
+                                        value=get_obsnum_range(name,datetime.now() - timedelta(days=7), datetime.now())[1]
                                                   ),width='auto'),
                             ],align='center'),
                         ], className='mb-1'
@@ -375,8 +377,7 @@ def create_filter(name):
                         dbc.Col(create_obsnum_selector(name), width='auto'),
                         dbc.Col(create_receiver_selector(name), width='auto')],className='mb-1'),
                     dbc.Row([
-                        dbc.Col(dbc.Label('x-axis'), width='auto'),
-                        dbc.Col(dcc.Dropdown(id=f'{name}-x-axis', options=get_x_axis(name), value='ObsNum')),
+
                         dbc.Col(dbc.Label('y-axis'), width='auto'),
                         dbc.Col(dcc.Dropdown(id=f'{name}-compare-y-axis', multi=True, options=get_fields(name), value=value))],className='mb-1'),
                     ]),
@@ -386,40 +387,17 @@ def create_compare_modal(name):
         dbc.ModalHeader(html.H5(f"Compare {name.capitalize()} Plot")),
         dbc.ModalBody(
             [
-                dbc.Row([
-                    dbc.Col(dbc.Label('Date Range1'), width='auto'),
-                    dbc.Col(
-                        dcc.DatePickerRange(
-                            id=f'{name}-compare-date-picker-range1',
-                            display_format='YYYY-MM-DD',
-                            start_date_placeholder_text='Start Date',
-                            end_date_placeholder_text='End Date',
-                            start_date=datetime.now() - timedelta(days=7),
-                            end_date=datetime.now(),
-                            persistence=True,  # Enable persistence if required
-                            persistence_type='session',  # Persist in session
-                            className='datepicker__input'
-                        ),width='auto'
-                    ),
-                    dbc.Col(dbc.Label('Date Range2'), width='auto'),
-                    dbc.Col(
-                        dcc.DatePickerRange(
-                            id=f'{name}-compare-date-picker-range2',
-                            display_format='YYYY-MM-DD',
-                            start_date_placeholder_text='Start Date',
-                            end_date_placeholder_text='End Date',
-                            start_date=datetime.now() - timedelta(days=7),
-                            end_date=datetime.now(),
-                            persistence=True,  # Enable persistence if required
-                            persistence_type='session',  # Persist in session
-                            className='datepicker__input'
-                        ), width='auto'
-                    ),
-                ], align='center', className='mb-1'),
+                dbc.Row(dbc.Col([
+                    dbc.Label('Select Dates'), dcc.Dropdown(
+                    id=f'{name}-multi-date-picker',
+                    options=[{'label': date, 'value': date} for date in get_dates(name)],
+                        value=get_dates(name)[0],
+                    multi=True
+                    )]),className='mb-3'),
                 dbc.Row(create_filter(name)),
                 dbc.Row([
                     dbc.Col(dcc.Loading(dcc.Graph(figure=go.Figure(), id=f'{name}-compare-plot1'))),
-                    dbc.Col(dcc.Loading(dcc.Graph(figure=go.Figure(), id=f'{name}-compare-plot2')))]
+                   ]
                 ),
             ]
         ),
@@ -442,25 +420,24 @@ def get_receivers(name):
         receivers = default_receivers
     return receivers
 
-def get_obsnum_range(start_date, end_date):
+def get_obsnum_range(name, start_date, end_date):
     df_astig = get_df('astig', start_date, end_date)
     df_focus = get_df('focus', start_date, end_date)
     df_pointing = get_df('pointing', start_date, end_date)
-
+    df_dict = {
+        'astig': df_astig,
+        'focus': df_focus,
+        'pointing': df_pointing,
+    }
 
     obsnum_start_list = []
     obsnum_end_list = []
 
     # Check if DataFrame is not empty before accessing 'ObsNum'
-    if not df_astig.empty:
-        obsnum_start_list.append(df_astig['ObsNum'].min())
-        obsnum_end_list.append(df_astig['ObsNum'].max())
-    if not df_focus.empty:
-        obsnum_start_list.append(df_focus['ObsNum'].min())
-        obsnum_end_list.append(df_focus['ObsNum'].max())
-    if not df_pointing.empty:
-        obsnum_start_list.append(df_pointing['ObsNum'].min())
-        obsnum_end_list.append(df_pointing['ObsNum'].max())
+    for key, df in df_dict.items():
+        if not df.empty:
+            obsnum_start_list.append(df['ObsNum'].min())
+            obsnum_end_list.append(df['ObsNum'].max())
 
     # If no valid 'ObsNum' values are found, return None or appropriate default values
     if not obsnum_start_list or not obsnum_end_list:
@@ -468,9 +445,17 @@ def get_obsnum_range(start_date, end_date):
 
     obsnum_start = min(obsnum_start_list)
     obsnum_end = max(obsnum_end_list)
+    if name in df_dict:
+        return df_dict[name]['ObsNum'].min(), df_dict[name]['ObsNum'].max()
+    elif name == 'same':
+        return obsnum_start, obsnum_end
 
-    return obsnum_start, obsnum_end
-
+def apply_filters(df, receivers, obsnum_start, obsnum_end):
+    if receivers and len(receivers) > 0:
+        df = df[df['Receiver'].isin(receivers)]
+    mask_obsnum = (df['ObsNum'] >= obsnum_start) & (df['ObsNum'] <= obsnum_end)
+    df = df[mask_obsnum]
+    return df
 
 def make_plot(name, date_start, date_end, obsnum_start, obsnum_end, receivers, x_axis, selected_fields):
     if selected_fields is None:
@@ -485,10 +470,7 @@ def make_plot(name, date_start, date_end, obsnum_start, obsnum_end, receivers, x
         return fig
 
     # Apply filters
-    # if receivers and len(receivers) > 0:
-    df_receivers = df[df['Receiver'].isin(receivers)]
-    mask_obsnum = (df['ObsNum'] >= obsnum_start) & (df['ObsNum'] <= obsnum_end)
-    df = df_receivers[mask_obsnum]
+    df = apply_filters(df, receivers, obsnum_start, obsnum_end)
     if df.empty:
         fig = go.Figure()
         fig.add_annotation(text='No data selected', showarrow=False, xref='paper', yref='paper', x=0.5, y=0.5)
@@ -520,6 +502,37 @@ def make_plot(name, date_start, date_end, obsnum_start, obsnum_end, receivers, x
         fig.update_layout(height=total_height, showlegend=False, margin=dict(l=50, r=50, t=50, b=50))
     return fig
 # dash layout components
+
+def make_compare_plot(modal_type, dates, obsnum_start, obsnum_end, receivers, y_axis):
+    fig = go.Figure()
+    for date in dates:
+        df = get_df(modal_type, date, date)
+        if df.empty:
+            continue
+        df = apply_filters(df, receivers, obsnum_start, obsnum_end)
+        if df.empty:
+            continue
+        for y in y_axis:
+            fig.add_trace(go.Scatter(
+                x=pd.to_datetime(df['Time']),
+                y=df[y],
+                mode='lines+markers',
+                name=f'{date} {y}'))
+    fig.update_layout(showlegend=True,
+                      xaxis=dict(
+                          tickmode='array',
+                          # tickvals=[i for i in range(0, 12, 2)],
+                          # ticktext=[f'{i}:00' for i in range(0, 12, 2)],
+                          type='date',
+                          tickformat='%H:%M:%S',
+                          title = 'Time of Day (UTC)',
+                          range=[pd.to_datetime('00:00:00').strftime('%Y-%m-%d %H:%M:%S'),
+                                 pd.to_datetime('12:00:00').strftime('%Y-%m-%d %H:%M:%S')]),
+                      # yaxis=dict(title=f'{modal_type.capitalize()} (mm)'),
+                      )
+    return fig
+
+
 
 # def make_compare_plot(name, start_date, end_date, compare_start_date, compare_end_date, obsnum_start, obsnum_end, receivers, x_axis, y_axis):
 #     title1 = f'{pd.to_datetime(start_date).date()} to {pd.to_datetime(end_date).date()} '
